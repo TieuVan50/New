@@ -1,0 +1,729 @@
+--═══════════════════════════════════════════════════════════════════════════════
+--  KHỞI TẠO SERVICES
+--═══════════════════════════════════════════════════════════════════════════════
+
+local Services = {
+	Players         = game:GetService("Players"),
+	RunService      = game:GetService("RunService"),
+	UserInputService = game:GetService("UserInputService"),
+	TweenService    = game:GetService("TweenService")
+}
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  CACHE DỮ LIỆU
+--═══════════════════════════════════════════════════════════════════════════════
+
+local Cache = (function()
+	local localPlayer = Services.Players.LocalPlayer
+	return {
+		LocalPlayer = localPlayer,
+		Mouse       = localPlayer:GetMouse(),
+		Camera      = workspace.CurrentCamera,
+		PlayerGui   = localPlayer:WaitForChild("PlayerGui")
+	}
+end)()
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  CẤU HÌNH CHÍNH
+--═══════════════════════════════════════════════════════════════════════════════
+
+local CONFIG = {
+	-- Cấu hình Box
+	BoxColor     = Color3.fromRGB(255, 255, 255),
+	BoxThickness = 0.5,
+	
+	-- Trạng thái
+	Enabled = false,
+	
+	-- Cấu hình Team Check
+	EnableTeamCheck = false,
+	ShowEnemyOnly   = false,
+	ShowAlliedOnly  = false,
+	
+	-- Cấu hình màu Team
+	UseTeamColors       = false,
+	UseActualTeamColors = true,
+	EnemyBoxColor       = Color3.fromRGB(255, 0, 0),
+	AlliedBoxColor      = Color3.fromRGB(0, 255, 0),
+	NoTeamColor         = Color3.fromRGB(255, 255, 255),
+	
+	-- Cấu hình Gradient
+	ShowGradient            = false,
+	GradientColor1          = Color3.fromRGB(255, 86, 0),
+	GradientColor2          = Color3.fromRGB(255, 0, 128),
+	GradientTransparency    = 0.7,
+	GradientRotation        = 90,
+	EnableGradientAnimation = false,
+	GradientAnimationSpeed  = 1
+}
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  BỘ NHỚ ESP
+--═══════════════════════════════════════════════════════════════════════════════
+
+local EspStorage = {
+	Boxes                = {},
+	GradientConnection   = nil,
+	RotationOffset       = 0,
+	MainScreenGui        = nil
+}
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  KHỞI TẠO SCREEN GUI (Hỗ trợ PC & Mobile)
+--═══════════════════════════════════════════════════════════════════════════════
+
+local function initializeScreenGui()
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "BoxESP"
+	screenGui.ResetOnSpawn = false
+	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	
+	-- Quan trọng: Bỏ qua GuiInset để box không bị cắt trên PC
+	screenGui.IgnoreGuiInset = true
+	
+	-- Đảm bảo hiển thị trên cả 2 nền tảng
+	screenGui.DisplayOrder = 999
+	screenGui.Parent = Cache.PlayerGui
+	
+	EspStorage.MainScreenGui = screenGui
+	return screenGui
+end
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  HỆ THỐNG TÌM KIẾM TEAM (Cải tiến)
+--═══════════════════════════════════════════════════════════════════════════════
+
+local TeamSystem = {}
+
+-- Tìm Teams service ở nhiều vị trí khác nhau
+function TeamSystem.getTeamsService()
+	-- Vị trí 1: Teams service mặc định
+	local teamsService = game:FindService("Teams")
+	if teamsService and #teamsService:GetTeams() > 0 then
+		return teamsService, "TeamsService"
+	end
+	
+	-- Vị trí 2: Tìm trong ReplicatedStorage
+	local replicatedStorage = game:GetService("ReplicatedStorage")
+	local teamsFolder = replicatedStorage:FindFirstChild("Teams") 
+		or replicatedStorage:FindFirstChild("TeamData")
+		or replicatedStorage:FindFirstChild("TeamSystem")
+	if teamsFolder then
+		return teamsFolder, "ReplicatedStorage"
+	end
+	
+	-- Vị trí 3: Tìm trong Workspace
+	local workspaceTeams = workspace:FindFirstChild("Teams")
+		or workspace:FindFirstChild("TeamData")
+	if workspaceTeams then
+		return workspaceTeams, "Workspace"
+	end
+	
+	-- Vị trí 4: Tìm trong ServerStorage (nếu có thể truy cập)
+	pcall(function()
+		local serverStorage = game:GetService("ServerStorage")
+		local serverTeams = serverStorage:FindFirstChild("Teams")
+		if serverTeams then
+			return serverTeams, "ServerStorage"
+		end
+	end)
+	
+	return nil, "None"
+end
+
+-- Lấy team của player (hỗ trợ nhiều cơ chế lưu trữ)
+function TeamSystem.getPlayerTeam(targetPlayer)
+	if not targetPlayer then return nil end
+	
+	-- Phương pháp 1: Team property mặc định
+	if targetPlayer.Team then
+		return {
+			Name      = targetPlayer.Team.Name,
+			TeamColor = targetPlayer.Team.TeamColor,
+			Instance  = targetPlayer.Team
+		}
+	end
+	
+	-- Phương pháp 2: TeamColor property
+	if targetPlayer.TeamColor and targetPlayer.TeamColor ~= BrickColor.new("White") then
+		return {
+			Name      = targetPlayer.TeamColor.Name,
+			TeamColor = targetPlayer.TeamColor,
+			Instance  = nil
+		}
+	end
+	
+	-- Phương pháp 3: Kiểm tra Attribute "Team"
+	local teamAttribute = targetPlayer:GetAttribute("Team") 
+		or targetPlayer:GetAttribute("TeamName")
+		or targetPlayer:GetAttribute("PlayerTeam")
+	if teamAttribute then
+		return {
+			Name      = tostring(teamAttribute),
+			TeamColor = nil,
+			Instance  = nil
+		}
+	end
+	
+	-- Phương pháp 4: Kiểm tra StringValue/IntValue trong Player
+	local teamValue = targetPlayer:FindFirstChild("Team")
+		or targetPlayer:FindFirstChild("TeamValue")
+		or targetPlayer:FindFirstChild("PlayerTeam")
+	if teamValue then
+		if teamValue:IsA("StringValue") or teamValue:IsA("IntValue") then
+			return {
+				Name      = tostring(teamValue.Value),
+				TeamColor = nil,
+				Instance  = nil
+			}
+		end
+		if teamValue:IsA("ObjectValue") and teamValue.Value then
+			return {
+				Name      = teamValue.Value.Name,
+				TeamColor = nil,
+				Instance  = teamValue.Value
+			}
+		end
+	end
+	
+	-- Phương pháp 5: Kiểm tra leaderstats
+	local leaderstats = targetPlayer:FindFirstChild("leaderstats")
+	if leaderstats then
+		local teamStat = leaderstats:FindFirstChild("Team")
+			or leaderstats:FindFirstChild("Faction")
+			or leaderstats:FindFirstChild("Side")
+		if teamStat then
+			return {
+				Name      = tostring(teamStat.Value),
+				TeamColor = nil,
+				Instance  = nil
+			}
+		end
+	end
+	
+	-- Phương pháp 6: Kiểm tra Character attributes
+	local character = targetPlayer.Character
+	if character then
+		local charTeam = character:GetAttribute("Team")
+			or character:GetAttribute("TeamName")
+		if charTeam then
+			return {
+				Name      = tostring(charTeam),
+				TeamColor = nil,
+				Instance  = nil
+			}
+		end
+		
+		-- Kiểm tra Humanoid attributes
+		local humanoid = character:FindFirstChild("Humanoid")
+		if humanoid then
+			local humTeam = humanoid:GetAttribute("Team")
+			if humTeam then
+				return {
+					Name      = tostring(humTeam),
+					TeamColor = nil,
+					Instance  = nil
+				}
+			end
+		end
+	end
+	
+	return nil
+end
+
+-- Kiểm tra 2 player có cùng team không
+function TeamSystem.isSameTeam(player1, player2)
+	if not player1 or not player2 then return false end
+	if player1 == player2 then return true end
+	
+	local team1 = TeamSystem.getPlayerTeam(player1)
+	local team2 = TeamSystem.getPlayerTeam(player2)
+	
+	-- Cả 2 đều không có team
+	if not team1 and not team2 then
+		return true
+	end
+	
+	-- Một người có team, một người không
+	if not team1 or not team2 then
+		return false
+	end
+	
+	-- So sánh theo Instance nếu có
+	if team1.Instance and team2.Instance then
+		return team1.Instance == team2.Instance
+	end
+	
+	-- So sánh theo TeamColor nếu có
+	if team1.TeamColor and team2.TeamColor then
+		return team1.TeamColor == team2.TeamColor
+	end
+	
+	-- So sánh theo tên
+	return team1.Name == team2.Name
+end
+
+-- Kiểm tra game có sử dụng hệ thống team không
+function TeamSystem.hasTeamSystem()
+	local teamsService, location = TeamSystem.getTeamsService()
+	if teamsService and location == "TeamsService" then
+		return true
+	end
+	
+	-- Kiểm tra xem có player nào có team không
+	for _, player in pairs(Services.Players:GetPlayers()) do
+		if TeamSystem.getPlayerTeam(player) then
+			return true
+		end
+	end
+	
+	return false
+end
+
+-- Lấy màu team của player
+function TeamSystem.getPlayerTeamColor(targetPlayer)
+	local team = TeamSystem.getPlayerTeam(targetPlayer)
+	if not team then return nil end
+	
+	-- Ưu tiên TeamColor
+	if team.TeamColor then
+		return team.TeamColor.Color
+	end
+	
+	-- Nếu có Instance team, lấy màu từ đó
+	if team.Instance and team.Instance:IsA("Team") then
+		return team.Instance.TeamColor.Color
+	end
+	
+	return nil
+end
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  HÀM TIỆN ÍCH
+--═══════════════════════════════════════════════════════════════════════════════
+
+local Utils = {}
+
+-- Kiểm tra player có phải là kẻ thù không
+function Utils.isEnemy(targetPlayer)
+	if not targetPlayer then return true end
+	if not targetPlayer.Character then return true end
+	
+	-- Nếu game không có team system -> coi như enemy
+	if not TeamSystem.hasTeamSystem() then
+		return true
+	end
+	
+	-- Kiểm tra xem có cùng team không
+	return not TeamSystem.isSameTeam(Cache.LocalPlayer, targetPlayer)
+end
+
+-- Kiểm tra có nên hiển thị player không
+function Utils.shouldShowPlayer(targetPlayer)
+	if not CONFIG.EnableTeamCheck then return true end
+	
+	local isEnemyPlayer = Utils.isEnemy(targetPlayer)
+	
+	if CONFIG.ShowEnemyOnly and not isEnemyPlayer then
+		return false
+	end
+	
+	if CONFIG.ShowAlliedOnly and isEnemyPlayer then
+		return false
+	end
+	
+	return true
+end
+
+-- Lấy màu box cho player
+function Utils.getBoxColor(targetPlayer)
+	if not CONFIG.UseTeamColors then
+		return CONFIG.BoxColor
+	end
+	
+	if CONFIG.UseActualTeamColors then
+		local teamColor = TeamSystem.getPlayerTeamColor(targetPlayer)
+		return teamColor or CONFIG.NoTeamColor
+	else
+		local isEnemyPlayer = Utils.isEnemy(targetPlayer)
+		return isEnemyPlayer and CONFIG.EnemyBoxColor or CONFIG.AlliedBoxColor
+	end
+end
+
+-- Lấy kích thước viewport (hỗ trợ PC & Mobile)
+function Utils.getViewportSize()
+	local camera = Cache.Camera or workspace.CurrentCamera
+	if camera then
+		return camera.ViewportSize
+	end
+	return Vector2.new(1920, 1080)
+end
+
+-- Kiểm tra nền tảng
+function Utils.isMobile()
+	return Services.UserInputService.TouchEnabled 
+		and not Services.UserInputService.KeyboardEnabled
+end
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  QUẢN LÝ GRADIENT ANIMATION
+--═══════════════════════════════════════════════════════════════════════════════
+
+local GradientManager = {}
+
+function GradientManager.start()
+	GradientManager.stop()
+	
+	if not CONFIG.EnableGradientAnimation then return end
+	
+	EspStorage.RotationOffset = 0
+	
+	EspStorage.GradientConnection = Services.RunService.RenderStepped:Connect(function(deltaTime)
+		if not CONFIG.EnableGradientAnimation then
+			GradientManager.stop()
+			return
+		end
+		
+		EspStorage.RotationOffset = (EspStorage.RotationOffset + deltaTime * CONFIG.GradientAnimationSpeed * 100) % 360
+		
+		for _, espData in pairs(EspStorage.Boxes) do
+			if espData and espData.UIGradient then
+				espData.UIGradient.Rotation = (CONFIG.GradientRotation + EspStorage.RotationOffset) % 360
+			end
+		end
+	end)
+end
+
+function GradientManager.stop()
+	if EspStorage.GradientConnection then
+		EspStorage.GradientConnection:Disconnect()
+		EspStorage.GradientConnection = nil
+	end
+	
+	for _, espData in pairs(EspStorage.Boxes) do
+		if espData and espData.UIGradient then
+			espData.UIGradient.Rotation = CONFIG.GradientRotation
+		end
+	end
+end
+
+function GradientManager.updateAll()
+	for _, espData in pairs(EspStorage.Boxes) do
+		if espData and espData.UIGradient then
+			espData.UIGradient.Color = ColorSequence.new{
+				ColorSequenceKeypoint.new(0.000, CONFIG.GradientColor1),
+				ColorSequenceKeypoint.new(1.000, CONFIG.GradientColor2)
+			}
+			if espData.BoxGradient then
+				espData.BoxGradient.BackgroundTransparency = CONFIG.GradientTransparency
+			end
+		end
+	end
+end
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  QUẢN LÝ ESP BOX
+--═══════════════════════════════════════════════════════════════════════════════
+
+local BoxManager = {}
+
+-- Cập nhật độ dày cho tất cả box
+function BoxManager.updateAllThickness()
+	for _, espData in pairs(EspStorage.Boxes) do
+		if espData and espData.UIStroke then
+			espData.UIStroke.Thickness = CONFIG.BoxThickness
+		end
+	end
+end
+
+-- Tạo ESP Box cho player
+function BoxManager.create(targetPlayer)
+	if EspStorage.Boxes[targetPlayer] then return end
+	
+	-- Tạo Frame chính cho Box
+	local boxFrame = Instance.new("Frame")
+	boxFrame.Name = "Box_" .. targetPlayer.Name
+	boxFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	boxFrame.BackgroundTransparency = 1
+	boxFrame.BorderSizePixel = 0
+	boxFrame.Parent = EspStorage.MainScreenGui
+	
+	-- Tạo UIStroke cho viền box
+	local uiStroke = Instance.new("UIStroke")
+	uiStroke.Thickness = CONFIG.BoxThickness
+	uiStroke.Color = CONFIG.BoxColor
+	uiStroke.LineJoinMode = Enum.LineJoinMode.Miter
+	uiStroke.Parent = boxFrame
+	
+	-- Tạo Frame Gradient
+	local gradientFrame = Instance.new("Frame")
+	gradientFrame.Name = "BoxGradient"
+	gradientFrame.BorderSizePixel = 0
+	gradientFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	gradientFrame.Size = UDim2.new(1, 0, 1, 0)
+	gradientFrame.BackgroundTransparency = CONFIG.GradientTransparency
+	gradientFrame.Visible = CONFIG.ShowGradient
+	gradientFrame.Parent = boxFrame
+	
+	-- Tạo UIGradient
+	local uiGradient = Instance.new("UIGradient")
+	uiGradient.Rotation = CONFIG.GradientRotation
+	uiGradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0.000, CONFIG.GradientColor1),
+		ColorSequenceKeypoint.new(1.000, CONFIG.GradientColor2)
+	}
+	uiGradient.Parent = gradientFrame
+	
+	-- Lưu vào storage
+	EspStorage.Boxes[targetPlayer] = {
+		Box         = boxFrame,
+		UIStroke    = uiStroke,
+		BoxGradient = gradientFrame,
+		UIGradient  = uiGradient
+	}
+	
+	return EspStorage.Boxes[targetPlayer]
+end
+
+-- Cập nhật ESP Box
+function BoxManager.update(targetPlayer, espData)
+	if not espData or not espData.Box then return end
+	
+	-- Kiểm tra character tồn tại
+	local character = targetPlayer.Character
+	if not character then
+		espData.Box.Visible = false
+		return
+	end
+	
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart then
+		espData.Box.Visible = false
+		return
+	end
+	
+	-- Kiểm tra Humanoid còn sống
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		espData.Box.Visible = false
+		return
+	end
+	
+	-- Kiểm tra team filter
+	if CONFIG.EnableTeamCheck then
+		local isEnemyPlayer = Utils.isEnemy(targetPlayer)
+		
+		if CONFIG.ShowEnemyOnly and not isEnemyPlayer then
+			espData.Box.Visible = false
+			return
+		end
+		
+		if CONFIG.ShowAlliedOnly and isEnemyPlayer then
+			espData.Box.Visible = false
+			return
+		end
+	end
+	
+	-- Tính toán kích thước box
+	local charSize = character:GetExtentsSize()
+	local boxHeight = charSize.Y * 0.8
+	local boxWidth = charSize.X * 0.8
+	
+	-- Tính vị trí trên màn hình
+	local camera = Cache.Camera or workspace.CurrentCamera
+	local viewportSize = Utils.getViewportSize()
+	
+	local headTop = humanoidRootPart.Position + Vector3.new(0, charSize.Y / 2, 0)
+	local feetBottom = humanoidRootPart.Position - Vector3.new(0, charSize.Y / 1.4, 0)
+	
+	local headScreenPos, headOnScreen = camera:WorldToViewportPoint(headTop)
+	local feetScreenPos, feetOnScreen = camera:WorldToViewportPoint(feetBottom)
+	
+	-- Tính toán vị trí và kích thước hiển thị
+	local screenX = (headScreenPos.X + feetScreenPos.X) / 2
+	local screenYTop = headScreenPos.Y
+	
+	local displayHeight = math.abs(feetScreenPos.Y - headScreenPos.Y)
+	local displayWidth = displayHeight * (boxWidth / boxHeight)
+	
+	-- Áp dụng kích thước và vị trí
+	espData.Box.Size = UDim2.new(0, displayWidth, 0, displayHeight)
+	espData.Box.Position = UDim2.new(0, screenX - displayWidth / 2, 0, screenYTop)
+	
+	-- Cập nhật độ dày stroke
+	if espData.UIStroke then
+		espData.UIStroke.Thickness = CONFIG.BoxThickness
+	end
+	
+	-- Cập nhật gradient
+	if espData.BoxGradient then
+		espData.BoxGradient.Visible = CONFIG.ShowGradient
+		espData.BoxGradient.BackgroundTransparency = CONFIG.GradientTransparency
+	end
+	
+	if espData.UIGradient then
+		espData.UIGradient.Color = ColorSequence.new{
+			ColorSequenceKeypoint.new(0.000, CONFIG.GradientColor1),
+			ColorSequenceKeypoint.new(1.000, CONFIG.GradientColor2)
+		}
+		if not CONFIG.EnableGradientAnimation then
+			espData.UIGradient.Rotation = CONFIG.GradientRotation
+		end
+	end
+	
+	-- Cập nhật màu box
+	local boxColor = Utils.getBoxColor(targetPlayer)
+	if espData.UIStroke then
+		espData.UIStroke.Color = boxColor
+	end
+	
+	-- Kiểm tra có trong viewport không (cải tiến cho PC & Mobile)
+	local isInFront = headScreenPos.Z > 0
+	local isInViewportX = screenX > -displayWidth and screenX < viewportSize.X + displayWidth
+	local isInViewportY = screenYTop > -displayHeight and screenYTop < viewportSize.Y + displayHeight
+	
+	espData.Box.Visible = isInFront and isInViewportX and isInViewportY
+end
+
+-- Xóa ESP Box
+function BoxManager.remove(targetPlayer)
+	local espData = EspStorage.Boxes[targetPlayer]
+	if espData then
+		if espData.Box then
+			espData.Box:Destroy()
+		end
+		EspStorage.Boxes[targetPlayer] = nil
+	end
+end
+
+-- Cập nhật tất cả ESP
+function BoxManager.updateAll()
+	for targetPlayer, espData in pairs(EspStorage.Boxes) do
+		if targetPlayer and targetPlayer.Parent and espData then
+			-- Bỏ qua local player
+			if targetPlayer == Cache.LocalPlayer then
+				continue
+			end
+			
+			if CONFIG.Enabled and Utils.shouldShowPlayer(targetPlayer) then
+				BoxManager.update(targetPlayer, espData)
+			else
+				espData.Box.Visible = false
+			end
+		else
+			BoxManager.remove(targetPlayer)
+		end
+	end
+end
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  XỬ LÝ SỰ KIỆN
+--═══════════════════════════════════════════════════════════════════════════════
+
+local EventHandler = {}
+
+function EventHandler.onPlayerAdded(newPlayer)
+	if newPlayer ~= Cache.LocalPlayer then
+		if Utils.shouldShowPlayer(newPlayer) then
+			task.wait(0.5)
+			BoxManager.create(newPlayer)
+		end
+	end
+end
+
+function EventHandler.onPlayerRemoving(leavingPlayer)
+	BoxManager.remove(leavingPlayer)
+end
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  KHỞI TẠO MODULE
+--═══════════════════════════════════════════════════════════════════════════════
+
+local function initialize()
+	-- Tạo ScreenGui chính
+	initializeScreenGui()
+	
+	-- Đăng ký sự kiện player
+	Services.Players.PlayerAdded:Connect(EventHandler.onPlayerAdded)
+	Services.Players.PlayerRemoving:Connect(EventHandler.onPlayerRemoving)
+	
+	-- Tạo box cho tất cả player hiện có
+	for _, otherPlayer in pairs(Services.Players:GetPlayers()) do
+		if otherPlayer ~= Cache.LocalPlayer then
+			EventHandler.onPlayerAdded(otherPlayer)
+		end
+	end
+	
+	-- Vòng lặp render chính
+	Services.RunService.RenderStepped:Connect(function()
+		BoxManager.updateAll()
+	end)
+	
+	-- Cập nhật camera reference khi thay đổi
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+		Cache.Camera = workspace.CurrentCamera
+	end)
+end
+
+-- Chạy khởi tạo
+initialize()
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  PUBLIC API
+--═══════════════════════════════════════════════════════════════════════════════
+
+local BoxAPIModule = {}
+
+-- Cập nhật cấu hình
+function BoxAPIModule:UpdateConfig(newConfig)
+	for key, value in pairs(newConfig) do
+		if CONFIG[key] ~= nil then
+			CONFIG[key] = value
+		end
+	end
+	
+	-- Khởi động lại animation nếu cấu hình gradient thay đổi
+	if newConfig.EnableGradientAnimation ~= nil then
+		if newConfig.EnableGradientAnimation then
+			GradientManager.start()
+		else
+			GradientManager.stop()
+		end
+	end
+end
+
+-- Lấy cấu hình hiện tại
+function BoxAPIModule:GetConfig()
+	return CONFIG
+end
+
+-- Bật/tắt ESP
+function BoxAPIModule:Toggle(state)
+	CONFIG.Enabled = state
+end
+
+-- Hủy toàn bộ module
+function BoxAPIModule:Destroy()
+	GradientManager.stop()
+	
+	for targetPlayer in pairs(EspStorage.Boxes) do
+		BoxManager.remove(targetPlayer)
+	end
+	
+	if EspStorage.MainScreenGui then
+		EspStorage.MainScreenGui:Destroy()
+	end
+end
+
+--═══════════════════════════════════════════════════════════════════════════════
+--  EXPORT API BỔ SUNG (Theo yêu cầu)
+--═══════════════════════════════════════════════════════════════════════════════
+
+-- Xuất các hàm team system để sử dụng bên ngoài
+BoxAPIModule.getTeamsService = TeamSystem.getTeamsService
+BoxAPIModule.isSameTeam      = TeamSystem.isSameTeam
+BoxAPIModule.getPlayerTeam   = TeamSystem.getPlayerTeam
+
+--═══════════════════════════════════════════════════════════════════════════════
+
+return BoxAPIModule
