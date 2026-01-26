@@ -1,0 +1,229 @@
+return function(EspPage, NPCESPAPI)
+	local EspSection = EspPage:Section({
+		Name = "NPC ESP",
+		Description = "Hệ thống NPC ESP nâng cao",
+		Icon = "10734923549",
+		Side = 1
+	})
+
+	--=============================================================================
+	-- BẬT/TẮT CHÍNH
+	--=============================================================================
+
+	EspSection:Toggle({
+		Name = "Bật",
+		Flag = "NPCESPEnable",
+		Default = false,
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({Enabled = Value})
+			NPCESPAPI:Toggle(Value)
+		end
+	})
+
+	--=============================================================================
+	-- CẤU HÌNH BOX
+	--=============================================================================
+
+	EspSection:Slider({
+		Name = "Độ dày Box",
+		Flag = "BoxThickness",
+		Min = 0.5,
+		Max = 5,
+		Default = 0.5,
+		Decimals = 0.1,
+		Suffix = "px",
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({BoxThickness = Value})
+		end
+	})
+
+	EspSection:Label("Màu Box"):Colorpicker({
+		Name = "Màu Box Chuẩn",
+		Flag = "BoxColor",
+		Default = Color3.fromRGB(255, 0, 0),
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({BoxColor = Value})
+		end
+	})
+
+	--=============================================================================
+	-- CẤU HÌNH NPC DETECTION
+	--=============================================================================
+
+	EspSection:Toggle({
+		Name = "Bật Tag Filter",
+		Flag = "EnableTagFilter",
+		Default = true,
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({EnableTagFilter = Value})
+		end
+	})
+
+	EspSection:Toggle({
+		Name = "Aggressive Detection",
+		Flag = "AggressiveNPCDetection",
+		Default = false,
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({AggressiveNPCDetection = Value})
+		end
+	})
+
+	--=============================================================================
+	-- MÀUG NPC
+	--=============================================================================
+
+	EspSection:Toggle({
+		Name = "Dùng Màu NPC",
+		Flag = "UseNPCColors",
+		Default = false,
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({UseNPCColors = Value})
+		end
+	})
+
+	EspSection:Label("Màu NPC Thường"):Colorpicker({
+		Name = "Màu Box NPC",
+		Flag = "StandardNPCColor",
+		Default = Color3.fromRGB(255, 0, 0),
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({StandardNPCColor = Value})
+		end
+	})
+
+	EspSection:Label("Màu Boss NPC"):Colorpicker({
+		Name = "Màu Box Boss",
+		Flag = "BossNPCColor",
+		Default = Color3.fromRGB(255, 165, 0),
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({BossNPCColor = Value})
+		end
+	})
+
+	--=============================================================================
+	-- CẤU HÌNH GRADIENT
+	--=============================================================================
+
+	EspSection:Toggle({
+		Name = "Hiển thị Gradient",
+		Flag = "ShowGradient",
+		Default = false,
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({ShowGradient = Value})
+		end
+	})
+
+	EspSection:Label("Màu Gradient 1"):Colorpicker({
+		Name = "Màu Gradient 1",
+		Flag = "GradientColor1",
+		Default = Color3.fromRGB(255, 86, 0),
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({GradientColor1 = Value})
+		end
+	})
+
+	EspSection:Label("Màu Gradient 2"):Colorpicker({
+		Name = "Màu Gradient 2",
+		Flag = "GradientColor2",
+		Default = Color3.fromRGB(255, 0, 128),
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({GradientColor2 = Value})
+		end
+	})
+
+	EspSection:Slider({
+		Name = "Độ Trong Suốt Gradient",
+		Flag = "GradientTransparency",
+		Min = 0,
+		Max = 1,
+		Default = 0.7,
+		Decimals = 0.1,
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({GradientTransparency = Value})
+		end
+	})
+
+	EspSection:Slider({
+		Name = "Góc Xoay Gradient",
+		Flag = "GradientRotation",
+		Min = 0,
+		Max = 360,
+		Default = 90,
+		Decimals = 1,
+		Suffix = "°",
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({GradientRotation = Value})
+		end
+	})
+
+	--=============================================================================
+	-- ANIMATION GRADIENT
+	--=============================================================================
+
+	EspSection:Toggle({
+		Name = "Bật Animation Gradient",
+		Flag = "EnableGradientAnimation",
+		Default = false,
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({EnableGradientAnimation = Value})
+		end
+	})
+
+	EspSection:Slider({
+		Name = "Tốc độ Animation",
+		Flag = "GradientAnimationSpeed",
+		Min = 0.1,
+		Max = 5,
+		Default = 1,
+		Decimals = 0.1,
+		Suffix = "x",
+		Callback = function(Value)
+			NPCESPAPI:UpdateConfig({GradientAnimationSpeed = Value})
+		end
+	})
+
+	--=============================================================================
+	-- NÚT TIỆN ÍCH
+	--=============================================================================
+
+	EspSection:Button({
+		Name = "Reset Cấu Hình",
+		Callback = function()
+			NPCESPAPI:UpdateConfig({
+				BoxColor = Color3.fromRGB(255, 0, 0),
+				BoxThickness = 0.5,
+				Enabled = false,
+				EnableTagFilter = true,
+				AggressiveNPCDetection = false,
+				UseNPCColors = false,
+				StandardNPCColor = Color3.fromRGB(255, 0, 0),
+				BossNPCColor = Color3.fromRGB(255, 165, 0),
+				ShowGradient = false,
+				GradientColor1 = Color3.fromRGB(255, 86, 0),
+				GradientColor2 = Color3.fromRGB(255, 0, 128),
+				GradientTransparency = 0.7,
+				GradientRotation = 90,
+				EnableGradientAnimation = false,
+				GradientAnimationSpeed = 1
+			})
+		end
+	})
+
+	EspSection:Button({
+		Name = "Hủy ESP",
+		Callback = function()
+			NPCESPAPI:Destroy()
+		end
+	})
+
+	EspSection:Button({
+		Name = "Xem NPC Đang Tracking",
+		Callback = function()
+			local trackedNPCs = NPCESPAPI:GetTrackedNPCs()
+			print("=== NPC ĐANG TRACKING ===")
+			print("Tổng số NPC: " .. #trackedNPCs)
+			for i, npc in pairs(trackedNPCs) do
+				print(i .. ". " .. npc.Name)
+			end
+		end
+	})
+end
