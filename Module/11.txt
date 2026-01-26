@@ -75,19 +75,33 @@ local NPCTags = {
 	"Tank Vampire", "tank vampire", "Tank Void Slime", "tank void slime",
 	"Tank Zombie", "tank zombie",
 	-- Động vật từ ReplicatedStorage.Animals
-	"Blue Wildebeest", "blue wildebeest", "Coyote", "coyote",
-	"Grizzly Bear", "grizzly bear", "Lion", "lion",
-	"Moose", "moose", "Plains Zebra", "plains zebra",
-	"Red Fox", "red fox", "Ruffed Grouse", "ruffed grouse",
-	"Spotted Hyena", "spotted hyena", "White-tailed Deer", "white-tailed deer",
-	"Canada Goose", "canada goose",
-	-- Biến thể động vật (Albino, Melanistic, Piebald, Leucistic, Halloween)
-	"Albino", "albino", "Melanistic", "melanistic", "Piebald", "piebald",
-	"Leucistic", "leucistic", "Halloween", "halloween",
-	-- Phân loại giới tính
-	"Female", "female", "Male", "male",
+	"BlueWildebeest", "bluewildebeest", "BlueWildebeestAlbino", "bluewildebestalbino",
+	"CanadaGoose", "canadagoose", "CanadaGooseLeucistic", "canadagooseleucistic",
+	"CanadaGoosePiebald", "canadagoosepiebald", "Coyote", "coyote",
+	"CoyoteAlbino", "coyotealbino", "CoyoteHalloween1", "coyotehalloween1",
+	"CoyoteMelanistic", "coyotemelanism", "CoyotePiebald", "coyotepiebald",
+	"GrizzlyBear", "grizzlybear", "GrizzlyBearAlbino", "grizzlybearalbino",
+	"GrizzlyBearHalloween1", "grizzlybearhalloween1", "GrizzlyBearMelanistic", "grizzlybearmelanistic",
+	"GrizzlyBearSilver", "grizzlybearsil ver", "FemaleLion", "femalelion",
+	"FemaleLionAlbino", "femalelionalbino", "MaleLion", "malelion",
+	"MaleLionAlbino", "malelionalbino", "FemaleMoose", "femalemoose",
+	"FemaleMooseAlbino", "femoosalbino", "FemaleMooseMelanistic", "femalemoosemelanistic",
+	"FemaleMoosePiebald", "femalemoosepiebald", "MaleMoose", "malemoose",
+	"MaleMooseAlbino", "malemoosealbino", "MaleMooseMelanistic", "malemoosemelanistic",
+	"MaleMoosePiebald", "malemoosepiebald", "PlainsZebra", "plainszebra",
+	"PlainsZebraAlbino", "plainszebra albino", "PlainsZebraBrown", "plainszebrabrown",
+	"PlainsZebraMelanistic", "plainszebra melanistic", "RedFox", "redfox",
+	"RedFoxAlbino", "redfoxalbino", "RedFoxMelanistic", "redfoxmelanistic",
+	"RedFoxPiebald", "redfoxpiebald", "RuffedGrouse", "ruffedgrouse",
+	"RuffedGrouseLeucistic", "ruffedgrouseleucistic", "SpottedHyena", "spottedhyena",
+	"SpottedHyenaAlbino", "spottedhyenaalbino", "AlbinoWhiteTailedDeerFemale", "albinowhitetaileddeerfemale",
+	"AlbinoWhiteTailedDeerMale", "albinowhitetaileddeermale", "MelanisticWhiteTailedDeerFemale", "melanisticwhitetaileddeerfemale",
+	"MelanisticWhiteTailedDeerMale", "melanisticwhitetaileddeermale", "PiebaldWhiteTailedDeerFemale", "piebaldwhitetaileddeerfemale",
+	"PiebaldWhiteTailedDeerMale", "piebaldwhitetaileddeermale", "WhiteTailedDeerFemale", "whitetaileddeerfemale",
+	"WhiteTailedDeerMale", "whitetaileddeermale", "WhiteTailedDeerMaleHalloween1", "whitetaileddeermalehalloween1",
+	"WhiteTailedDeerMaleHalloween2", "whitetaileddeermalehalloween2", "WhiteTailedDeerMaleHalloween3", "whitetaileddeermalehalloween3",
 }
-
+	
 --═══════════════════════════════════════════════════════════════════════════════
 --  CẤU HÌNH CHÍNH
 --═══════════════════════════════════════════════════════════════════════════════
