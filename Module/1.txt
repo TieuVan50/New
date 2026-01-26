@@ -39,6 +39,7 @@ local NPCTags = {
 	"Servant", "servant", "Minion", "minion", "Slave", "slave", "Pawn", "pawn",
 	"AI", "ai", "A.I.", "Char", "char", "Character", "character",
 	"Model", "model", "Event", "event", "Special", "special",
+	-- Thêm mới từ danh sách
 	"Angel", "angel", "Archangel", "archangel", "Crystal", "crystal",
 	"Demon", "demon", "Elf", "elf", "Ghost", "ghost", "Santa", "santa",
 	"Slime", "slime", "Vampire", "vampire", "Void Slime", "void slime",
@@ -73,6 +74,18 @@ local NPCTags = {
 	"Tank Santa", "tank santa", "Tank Slime", "tank slime",
 	"Tank Vampire", "tank vampire", "Tank Void Slime", "tank void slime",
 	"Tank Zombie", "tank zombie",
+	-- Động vật từ ReplicatedStorage.Animals
+	"Blue Wildebeest", "blue wildebeest", "Coyote", "coyote",
+	"Grizzly Bear", "grizzly bear", "Lion", "lion",
+	"Moose", "moose", "Plains Zebra", "plains zebra",
+	"Red Fox", "red fox", "Ruffed Grouse", "ruffed grouse",
+	"Spotted Hyena", "spotted hyena", "White-tailed Deer", "white-tailed deer",
+	"Canada Goose", "canada goose",
+	-- Biến thể động vật (Albino, Melanistic, Piebald, Leucistic, Halloween)
+	"Albino", "albino", "Melanistic", "melanistic", "Piebald", "piebald",
+	"Leucistic", "leucistic", "Halloween", "halloween",
+	-- Phân loại giới tính
+	"Female", "female", "Male", "male",
 }
 
 --═══════════════════════════════════════════════════════════════════════════════
