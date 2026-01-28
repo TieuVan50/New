@@ -49,8 +49,8 @@ local CONFIG = {
 	
 	-- Cấu hình Gradient
 	ShowGradient            = false,
-	GradientColor1          = Color3.fromRGB(255, 86, 0),
-	GradientColor2          = Color3.fromRGB(255, 0, 128),
+	GradientColor1          = Color3.fromRGB(255, 255, 255),
+	GradientColor2          = Color3.fromRGB(0, 0, 0),
 	GradientTransparency    = 0.7,
 	GradientRotation        = 90,
 	EnableGradientAnimation = false,
