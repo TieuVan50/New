@@ -142,7 +142,7 @@ return function(EspPage, BoxAPI)
 	EspSection:Label("Màu Gradient 1"):Colorpicker({
 		Name = "Màu Gradient 1",
 		Flag = "GradientColor1",
-		Default = Color3.fromRGB(255, 86, 0),
+		Default = Color3.fromRGB(255, 255, 255),
 		Callback = function(Value)
 			BoxAPI:UpdateConfig({GradientColor1 = Value})
 		end
@@ -151,7 +151,7 @@ return function(EspPage, BoxAPI)
 	EspSection:Label("Màu Gradient 2"):Colorpicker({
 		Name = "Màu Gradient 2",
 		Flag = "GradientColor2",
-		Default = Color3.fromRGB(255, 0, 128),
+		Default = Color3.fromRGB(0, 0, 0),
 		Callback = function(Value)
 			BoxAPI:UpdateConfig({GradientColor2 = Value})
 		end
