@@ -213,7 +213,7 @@ return function(EspPage, NPCESPAPI)
 			NPCESPAPI:Destroy()
 		end
 	})
-
+]]
 	EspSection:Button({
 		Name = "Xem NPC Đang Tracking",
 		Callback = function()
@@ -226,4 +226,3 @@ return function(EspPage, NPCESPAPI)
 		end
 	})
 end
-]]
