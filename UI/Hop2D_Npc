@@ -115,7 +115,7 @@ return function(EspPage, NPCESPAPI)
 	EspSection:Label("Màu Gradient 1"):Colorpicker({
 		Name = "Màu Gradient 1",
 		Flag = "GradientColor1",
-		Default = Color3.fromRGB(255, 86, 0),
+		Default = Color3.fromRGB(255, 255, 255),
 		Callback = function(Value)
 			NPCESPAPI:UpdateConfig({GradientColor1 = Value})
 		end
@@ -124,7 +124,7 @@ return function(EspPage, NPCESPAPI)
 	EspSection:Label("Màu Gradient 2"):Colorpicker({
 		Name = "Màu Gradient 2",
 		Flag = "GradientColor2",
-		Default = Color3.fromRGB(255, 0, 128),
+		Default = Color3.fromRGB(0, 0, 0),
 		Callback = function(Value)
 			NPCESPAPI:UpdateConfig({GradientColor2 = Value})
 		end
@@ -181,39 +181,6 @@ return function(EspPage, NPCESPAPI)
 		end
 	})
 
-	--[[=============================================================================
-	-- NÚT TIỆN ÍCH
-
-	EspSection:Button({
-		Name = "Reset Cấu Hình",
-		Callback = function()
-			NPCESPAPI:UpdateConfig({
-				BoxColor = Color3.fromRGB(255, 0, 0),
-				BoxThickness = 0.5,
-				Enabled = false,
-				EnableTagFilter = true,
-				AggressiveNPCDetection = false,
-				UseNPCColors = false,
-				StandardNPCColor = Color3.fromRGB(255, 0, 0),
-				BossNPCColor = Color3.fromRGB(255, 165, 0),
-				ShowGradient = false,
-				GradientColor1 = Color3.fromRGB(255, 86, 0),
-				GradientColor2 = Color3.fromRGB(255, 0, 128),
-				GradientTransparency = 0.7,
-				GradientRotation = 90,
-				EnableGradientAnimation = false,
-				GradientAnimationSpeed = 1
-			})
-		end
-	})
-
-	EspSection:Button({
-		Name = "Hủy ESP",
-		Callback = function()
-			NPCESPAPI:Destroy()
-		end
-	})
-]]
 	EspSection:Button({
 		Name = "Xem NPC Đang Tracking",
 		Callback = function()
