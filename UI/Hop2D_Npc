@@ -1,7 +1,7 @@
 return function(EspPage, NPCESPAPI)
 	local EspSection = EspPage:Section({
-		Name = "NPC ESP",
-		Description = "Hệ thống NPC ESP nâng cao",
+		Name = "Box ESP",
+		Description = "Hệ thống Box ESP nâng cao",
 		Icon = "10734965702",
 		Side = 1
 	})
