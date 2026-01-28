@@ -2,7 +2,7 @@ return function(EspPage, BoxAPI)
 	local EspSection = EspPage:Section({
 		Name = "Box ESP",
 		Description = "Hệ thống Box ESP nâng cao",
-		Icon = "10734923549",
+		Icon = "10734965702",
 		Side = 1
 	})
 
