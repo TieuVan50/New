@@ -242,6 +242,5 @@ return function(EspPage, BoxAPI)
 		Callback = function()
 			BoxAPI:Destroy()
 		end
-	})
+	})]]
 end
-]]
