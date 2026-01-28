@@ -208,7 +208,7 @@ return function(EspPage, BoxAPI)
 		end
 	})
 
-	--[[=============================================================================
+	--=============================================================================
 	-- NÚT TIỆN ÍCH
 
 	EspSection:Button({
@@ -242,5 +242,5 @@ return function(EspPage, BoxAPI)
 		Callback = function()
 			BoxAPI:Destroy()
 		end
-	})]]
+	})
 end
