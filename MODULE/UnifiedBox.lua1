@@ -1,5 +1,5 @@
 --═══════════════════════════════════════════════════════════════════════════════
---  UNIFIED ESP - WITH PROFESSIONAL BOX SYSTEM (From Example File Logic)
+--  UNIFIED ESP - WITH PROFESSIONAL BOX SYSTEM (FIXED STROKE RENDERING)
 --═══════════════════════════════════════════════════════════════════════════════
 
 local Services = {
@@ -76,6 +76,10 @@ local GLOBAL_CONFIG = {
 	UseNPCColors = false,
 	StandardNPCColor = Color3.fromRGB(255, 0, 0),
 	BossNPCColor = Color3.fromRGB(255, 165, 0),
+	
+	-- Text Stroke (FIX)
+	TextStrokeSize = 1,
+	TextStrokeTransparency = 0,
 }
 
 --═══════════════════════════════════════════════════════════════════════════════
@@ -283,27 +287,25 @@ function Utils.getBoxColor(target)
 			if GLOBAL_CONFIG.UseActualTeamColors then
 				local team = TeamSystem.getPlayerTeam(targetPlayer)
 				if team and team.TeamColor then
-					return team.TeamColor.Color
-				end
-			else
-				local isEnemy = not TeamSystem.isSameTeam(LocalPlayer, targetPlayer)
-				if isEnemy then
-					return GLOBAL_CONFIG.EnemyBoxColor
-				else
-					return GLOBAL_CONFIG.AlliedBoxColor
+					return Color3.fromRGB(team.TeamColor.r * 255, team.TeamColor.g * 255, team.TeamColor.b * 255)
 				end
 			end
-			return GLOBAL_CONFIG.NoTeamColor
+			
+			if TeamSystem.isSameTeam(LocalPlayer, targetPlayer) then
+				return GLOBAL_CONFIG.AlliedBoxColor
+			else
+				return GLOBAL_CONFIG.EnemyBoxColor
+			end
 		end
+		return GLOBAL_CONFIG.BoxColor
+	end
+	
 	-- Nếu là NPC
-	elseif target:IsA("Model") and NPCSystem.isNPC(target) then
-		if GLOBAL_CONFIG.UseNPCColors then
-			local isBoss = NPCSystem.isBoss(target)
-			if isBoss then
-				return GLOBAL_CONFIG.BossNPCColor
-			else
-				return GLOBAL_CONFIG.StandardNPCColor
-			end
+	if GLOBAL_CONFIG.UseNPCColors then
+		if NPCSystem.isBoss(target) then
+			return GLOBAL_CONFIG.BossNPCColor
+		else
+			return GLOBAL_CONFIG.StandardNPCColor
 		end
 	end
 	
@@ -311,7 +313,7 @@ function Utils.getBoxColor(target)
 end
 
 --═══════════════════════════════════════════════════════════════════════════════
---  GRADIENT ANIMATION
+--  GRADIENT MANAGER
 --═══════════════════════════════════════════════════════════════════════════════
 
 local GradientManager = {}
@@ -319,15 +321,12 @@ local GradientManager = {}
 function GradientManager.start()
 	if EspStorage.GradientConnection then return end
 	
-	EspStorage.GradientConnection = Services.RunService.RenderStepped:Connect(function()
-		if not GLOBAL_CONFIG.EnableGradientAnimation then
-			GradientManager.stop()
-			return
-		end
+	EspStorage.GradientConnection = Services.RunService.Heartbeat:Connect(function()
+		if not GLOBAL_CONFIG.EnableGradientAnimation then return end
 		
 		EspStorage.RotationOffset = (EspStorage.RotationOffset + GLOBAL_CONFIG.GradientAnimationSpeed) % 360
 		
-		for _, espData in pairs(EspStorage.Boxes) do
+		for target, espData in pairs(EspStorage.Boxes) do
 			if espData.UIGradient then
 				espData.UIGradient.Rotation = EspStorage.RotationOffset
 			end
@@ -343,127 +342,106 @@ function GradientManager.stop()
 end
 
 --═══════════════════════════════════════════════════════════════════════════════
---  BOX MANAGER (Professional Box System from Example)
+--  BOX MANAGER
 --═══════════════════════════════════════════════════════════════════════════════
 
 local BoxManager = {}
 
 function BoxManager.create(target)
-	if EspStorage.Boxes[target] then
-		return EspStorage.Boxes[target]
-	end
+	if EspStorage.Boxes[target] then return end
 	
-	-- Main holder frame
+	local screenGui = initializeScreenGui()
+	
+	-- Main Holder (Box Container)
 	local holder = Instance.new("Frame")
-	holder.Name = "Holder"
+	holder.Name = "ESPBox"
+	holder.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	holder.BackgroundTransparency = 1
 	holder.BorderSizePixel = 0
-	holder.Parent = EspStorage.MainScreenGui
+	holder.Parent = screenGui
+	holder.ZIndex = 10
 	
-	-- Box outline (outer stroke - GREEN)
+	-- UIStroke for box outline
 	local boxOutline = Instance.new("UIStroke")
-	boxOutline.Thickness = GLOBAL_CONFIG.BoxThickness
-	boxOutline.Color = GLOBAL_CONFIG.BoxColor
-	boxOutline.LineJoinMode = Enum.LineJoinMode.Miter
 	boxOutline.Parent = holder
+	boxOutline.Thickness = GLOBAL_CONFIG.BoxThickness
+	boxOutline.LineJoinMode = Enum.LineJoinMode.Miter
+	boxOutline.Transparency = 0
 	
-	-- Box handler (inner black border)
-	local boxHandler = Instance.new("Frame")
-	boxHandler.Name = "BoxHandler"
-	boxHandler.BackgroundTransparency = 1
-	boxHandler.BorderSizePixel = 0
-	boxHandler.Position = UDim2.new(0, 1, 0, 1)
-	boxHandler.Size = UDim2.new(1, -2, 1, -2)
-	boxHandler.Parent = holder
-	
-	-- Inner stroke (black outline)
-	local innerStroke = Instance.new("UIStroke")
-	innerStroke.Thickness = 1
-	innerStroke.Color = Color3.fromRGB(0, 0, 0)
-	innerStroke.LineJoinMode = Enum.LineJoinMode.Miter
-	innerStroke.Parent = boxHandler
-	
-	-- Gradient frame (optional)
-	local gradientFrame = Instance.new("Frame")
-	gradientFrame.Name = "BoxGradient"
-	gradientFrame.BorderSizePixel = 0
-	gradientFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	gradientFrame.Size = UDim2.new(1, 0, 1, 0)
-	gradientFrame.BackgroundTransparency = GLOBAL_CONFIG.GradientTransparency
-	gradientFrame.Visible = GLOBAL_CONFIG.ShowGradient
-	gradientFrame.Parent = holder
+	-- Optional Gradient Background
+	local boxGradient = Instance.new("Frame")
+	boxGradient.Name = "Gradient"
+	boxGradient.BackgroundColor3 = GLOBAL_CONFIG.GradientColor1
+	boxGradient.BackgroundTransparency = GLOBAL_CONFIG.GradientTransparency
+	boxGradient.BorderSizePixel = 0
+	boxGradient.Parent = holder
+	boxGradient.Visible = GLOBAL_CONFIG.ShowGradient
 	
 	local uiGradient = Instance.new("UIGradient")
-	uiGradient.Rotation = GLOBAL_CONFIG.GradientRotation
+	uiGradient.Parent = boxGradient
 	uiGradient.Color = ColorSequence.new{
 		ColorSequenceKeypoint.new(0.000, GLOBAL_CONFIG.GradientColor1),
 		ColorSequenceKeypoint.new(1.000, GLOBAL_CONFIG.GradientColor2)
 	}
-	uiGradient.Parent = gradientFrame
+	uiGradient.Rotation = GLOBAL_CONFIG.GradientRotation
 	
+	-- Name Label with proper stroke
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "NameLabel"
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.BorderSizePixel = 0
+	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	nameLabel.TextSize = 13
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.Position = UDim2.fromOffset(0, -20)
+	nameLabel.Size = UDim2.new(1, 0, 0, 20)
+	nameLabel.TextStrokeTransparency = GLOBAL_CONFIG.TextStrokeTransparency
+	nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	nameLabel.Parent = holder
+	nameLabel.ZIndex = 11
+	
+	-- Get target name
+	local targetName = "Unknown"
+	if target:IsA("Player") then
+		targetName = target.DisplayName or target.Name
+	elseif target:IsA("Model") then
+		targetName = target.Name
+	end
+	nameLabel.Text = targetName
+	
+	-- Store data
 	EspStorage.Boxes[target] = {
-		Holder      = holder,
-		BoxOutline  = boxOutline,
-		BoxHandler  = boxHandler,
-		InnerStroke = innerStroke,
-		BoxGradient = gradientFrame,
-		UIGradient  = uiGradient
+		Holder = holder,
+		NameLabel = nameLabel,
+		BoxOutline = boxOutline,
+		BoxGradient = boxGradient,
+		UIGradient = uiGradient,
+		Target = target
 	}
-	
-	return EspStorage.Boxes[target]
 end
 
 function BoxManager.update(target, espData)
-	if not espData or not espData.Holder then return end
+	if not target or not target.Parent then
+		BoxManager.remove(target)
+		return
+	end
 	
-	local character
-	
-	if target:IsA("Player") then
-		character = target.Character
+	-- Get humanoid root part
+	local humanoidRootPart
+	if target:IsA("Player") and target.Character then
+		humanoidRootPart = target.Character:FindFirstChild("HumanoidRootPart")
 	elseif target:IsA("Model") then
-		character = target
-	else
-		espData.Holder.Visible = false
-		return
+		humanoidRootPart = target:FindFirstChild("HumanoidRootPart")
 	end
 	
-	if not character then
-		espData.Holder.Visible = false
-		return
-	end
-	
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 	if not humanoidRootPart then
-		espData.Holder.Visible = false
+		BoxManager.remove(target)
 		return
 	end
 	
-	local humanoid = character:FindFirstChild("Humanoid")
-	if not humanoid or humanoid.Health <= 0 then
-		espData.Holder.Visible = false
-		return
-	end
-	
-	-- Team check (for players only)
-	if target:IsA("Player") and GLOBAL_CONFIG.EnableTeamCheck then
-		local isEnemyPlayer = not TeamSystem.isSameTeam(LocalPlayer, target)
-		
-		if GLOBAL_CONFIG.ShowEnemyOnly and not isEnemyPlayer then
-			espData.Holder.Visible = false
-			return
-		end
-		
-		if GLOBAL_CONFIG.ShowAlliedOnly and isEnemyPlayer then
-			espData.Holder.Visible = false
-			return
-		end
-	end
-	
-	-- Box solving (same logic as example file)
 	local boxSize, boxPos, onScreen, distance = Utils.boxSolve(humanoidRootPart)
 	
 	if not boxSize or not boxPos then
-		espData.Holder.Visible = false
 		return
 	end
 	
@@ -472,7 +450,7 @@ function BoxManager.update(target, espData)
 	espData.Holder.Size = UDim2.fromOffset(boxSize.X, boxSize.Y)
 	
 	-- Update colors
-	local boxColor = Utils.getBoxColor(character)
+	local boxColor = Utils.getBoxColor(target)
 	if espData.BoxOutline then
 		espData.BoxOutline.Color = boxColor
 		espData.BoxOutline.Thickness = GLOBAL_CONFIG.BoxThickness
@@ -492,6 +470,11 @@ function BoxManager.update(target, espData)
 		if not GLOBAL_CONFIG.EnableGradientAnimation then
 			espData.UIGradient.Rotation = GLOBAL_CONFIG.GradientRotation
 		end
+	end
+	
+	-- Update text stroke
+	if espData.NameLabel then
+		espData.NameLabel.TextStrokeTransparency = GLOBAL_CONFIG.TextStrokeTransparency
 	end
 	
 	-- Visibility check
