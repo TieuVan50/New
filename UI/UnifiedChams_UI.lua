@@ -1,54 +1,74 @@
-return function(EspPage, UnifiedChams)
+return function(EspPage, ChamsAPI)
 	local ChamsSection = EspPage:Section({
 		Name = "Chams ESP",
-		Description = "Highlight targets through walls - Player & NPC",
+		Description = "Highlight players & NPCs through walls",
 		Icon = "10709782230",
 		Side = 2
 	})
 
-	--=============================================================================
-	-- BẬT/TẮT CHÍNH
-	--=============================================================================
-
+	--=== PLAYER CHAMS ===--
+	
 	ChamsSection:Toggle({
 		Name = "Enable Chams",
 		Flag = "ChamsToggle",
 		Default = false,
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({enabled = Value})
-			UnifiedChams:Toggle(Value)
+			ChamsAPI:UpdateConfig({enabled = Value})
+			ChamsAPI:Toggle(Value)
 		end
 	})
 
-	--=============================================================================
-	-- DROPDOWN CHỌN MODE (PLAYER HOẶC NPC)
-	--=============================================================================
-
-	ChamsSection:Dropdown({
-		Name = "Chams Mode",
-		Flag = "ChamsMode",
-		Default = "Player",
-		Items = {"Player", "NPC"},
-		Multi = false,
+	ChamsSection:Toggle({
+		Name = "Team Check",
+		Flag = "ChamsTeamCheck",
+		Default = false,
 		Callback = function(Value)
-			local selectedMode = type(Value) == "table" and Value[1] or Value
-			UnifiedChams:SetMode(selectedMode)
-			print("✓ Chams mode changed to: " .. selectedMode)
+			ChamsAPI:UpdateConfig({EnableTeamCheck = Value})
 		end
 	})
 
-	--=============================================================================
-	-- CẤU HÌNH CHUNG
-	--=============================================================================
+	ChamsSection:Toggle({
+		Name = "Enemy Only",
+		Flag = "ChamsEnemyOnly",
+		Default = false,
+		Callback = function(Value)
+			ChamsAPI:UpdateConfig({ShowEnemyOnly = Value})
+		end
+	})
 
-	ChamsSection:Label("─ Cấu Hình Chung ─")
+	ChamsSection:Toggle({
+		Name = "Allied Only",
+		Flag = "ChamsAlliedOnly",
+		Default = false,
+		Callback = function(Value)
+			ChamsAPI:UpdateConfig({ShowAlliedOnly = Value})
+		end
+	})
+
+	ChamsSection:Toggle({
+		Name = "Use Team Colors",
+		Flag = "ChamsUseTeamColors",
+		Default = false,
+		Callback = function(Value)
+			ChamsAPI:UpdateConfig({UseTeamColors = Value})
+		end
+	})
+
+	ChamsSection:Toggle({
+		Name = "Use Actual Team Colors",
+		Flag = "ChamsUseActualTeamColors",
+		Default = true,
+		Callback = function(Value)
+			ChamsAPI:UpdateConfig({UseActualTeamColors = Value})
+		end
+	})
 
 	ChamsSection:Toggle({
 		Name = "Use Visibility Colors",
 		Flag = "ChamsVisibilityColors",
 		Default = false,
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({useVisibilityColors = Value})
+			ChamsAPI:UpdateConfig({useVisibilityColors = Value})
 		end
 	})
 
@@ -57,7 +77,7 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsRaycasting",
 		Default = false,
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({useRaycasting = Value})
+			ChamsAPI:UpdateConfig({useRaycasting = Value})
 		end
 	})
 
@@ -68,8 +88,7 @@ return function(EspPage, UnifiedChams)
 		Items = {"AlwaysOnTop", "Occluded"},
 		Multi = false,
 		Callback = function(Value)
-			local selectedMode = type(Value) == "table" and Value[1] or Value
-			UnifiedChams:UpdateConfig({depthMode = selectedMode})
+			ChamsAPI:UpdateConfig({depthMode = Value})
 		end
 	})
 
@@ -80,8 +99,9 @@ return function(EspPage, UnifiedChams)
 		Max = 1,
 		Default = 0.5,
 		Decimals = 0.01,
+		Suffix = "",
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({fillTransparency = Value})
+			ChamsAPI:UpdateConfig({fillTransparency = Value})
 		end
 	})
 
@@ -92,74 +112,59 @@ return function(EspPage, UnifiedChams)
 		Max = 1,
 		Default = 0,
 		Decimals = 0.01,
+		Suffix = "",
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({outlineTransparency = Value})
+			ChamsAPI:UpdateConfig({outlineTransparency = Value})
 		end
 	})
 
-	--=============================================================================
-	-- CẤU HÌNH PLAYER MODE
-	--=============================================================================
-
-	ChamsSection:Label("─ Player Settings ─")
-
-	ChamsSection:Toggle({
-		Name = "Team Check",
-		Flag = "ChamsTeamCheck",
-		Default = false,
+	ChamsSection:Slider({
+		Name = "Max Distance",
+		Flag = "ChamsMaxDistance",
+		Min = 100,
+		Max = 10000,
+		Default = 10000,
+		Decimals = 100,
+		Suffix = "m",
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({EnableTeamCheck = Value})
+			ChamsAPI:UpdateConfig({maxDistance = Value})
 		end
 	})
 
-	ChamsSection:Toggle({
-		Name = "Enemy Only",
-		Flag = "ChamsEnemyOnly",
-		Default = false,
+	ChamsSection:Slider({
+		Name = "Update Interval",
+		Flag = "ChamsUpdateInterval",
+		Min = 0.01,
+		Max = 0.5,
+		Default = 0.05,
+		Decimals = 0.01,
+		Suffix = "s",
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({ShowEnemyOnly = Value})
+			ChamsAPI:UpdateConfig({updateInterval = Value})
 		end
 	})
 
-	ChamsSection:Toggle({
-		Name = "Allied Only",
-		Flag = "ChamsAlliedOnly",
-		Default = false,
+	ChamsSection:Slider({
+		Name = "Batch Size",
+		Flag = "ChamsBatchSize",
+		Min = 1,
+		Max = 20,
+		Default = 5,
+		Decimals = 1,
+		Suffix = "",
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({ShowAlliedOnly = Value})
+			ChamsAPI:UpdateConfig({batchSize = Value})
 		end
 	})
 
-	ChamsSection:Toggle({
-		Name = "Use Team Colors",
-		Flag = "ChamsUseTeamColors",
-		Default = false,
-		Callback = function(Value)
-			UnifiedChams:UpdateConfig({UseTeamColors = Value})
-		end
-	})
-
-	ChamsSection:Toggle({
-		Name = "Use Actual Team Colors",
-		Flag = "ChamsUseActualTeamColors",
-		Default = true,
-		Callback = function(Value)
-			UnifiedChams:UpdateConfig({UseActualTeamColors = Value})
-		end
-	})
-
-	--=============================================================================
-	-- MÀUG BASE (CHO CẢ PLAYER & NPC)
-	--=============================================================================
-
-	ChamsSection:Label("─ Base Colors ─")
+	--=== COLORS ===--
 
 	ChamsSection:Label("Fill Color"):Colorpicker({
 		Name = "Fill Color",
 		Flag = "ChamsFillColor",
 		Default = Color3.fromRGB(0, 255, 140),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({fillColor = Value})
+			ChamsAPI:UpdateConfig({fillColor = Value})
 		end
 	})
 
@@ -168,22 +173,16 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsOutlineColor",
 		Default = Color3.fromRGB(0, 255, 140),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({outlineColor = Value})
+			ChamsAPI:UpdateConfig({outlineColor = Value})
 		end
 	})
-
-	--=============================================================================
-	-- MÀUG PLAYER TEAM
-	--=============================================================================
-
-	ChamsSection:Label("─ Player Team Colors ─")
 
 	ChamsSection:Label("Enemy Fill Color"):Colorpicker({
 		Name = "Enemy Fill Color",
 		Flag = "ChamsEnemyFillColor",
 		Default = Color3.fromRGB(255, 0, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({EnemyFillColor = Value})
+			ChamsAPI:UpdateConfig({EnemyFillColor = Value})
 		end
 	})
 
@@ -192,7 +191,7 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsEnemyOutlineColor",
 		Default = Color3.fromRGB(255, 0, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({EnemyOutlineColor = Value})
+			ChamsAPI:UpdateConfig({EnemyOutlineColor = Value})
 		end
 	})
 
@@ -201,7 +200,7 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsAlliedFillColor",
 		Default = Color3.fromRGB(0, 255, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({AlliedFillColor = Value})
+			ChamsAPI:UpdateConfig({AlliedFillColor = Value})
 		end
 	})
 
@@ -210,7 +209,7 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsAlliedOutlineColor",
 		Default = Color3.fromRGB(0, 255, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({AlliedOutlineColor = Value})
+			ChamsAPI:UpdateConfig({AlliedOutlineColor = Value})
 		end
 	})
 
@@ -219,22 +218,16 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsNoTeamColor",
 		Default = Color3.fromRGB(255, 255, 255),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({NoTeamColor = Value})
+			ChamsAPI:UpdateConfig({NoTeamColor = Value})
 		end
 	})
-
-	--=============================================================================
-	-- MÀUG VISIBILITY
-	--=============================================================================
-
-	ChamsSection:Label("─ Visibility Colors ─")
 
 	ChamsSection:Label("Visible Fill Color"):Colorpicker({
 		Name = "Visible Fill Color",
 		Flag = "ChamsVisibleFillColor",
 		Default = Color3.fromRGB(0, 255, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({visibleFillColor = Value})
+			ChamsAPI:UpdateConfig({visibleFillColor = Value})
 		end
 	})
 
@@ -243,7 +236,7 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsVisibleOutlineColor",
 		Default = Color3.fromRGB(0, 255, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({visibleOutlineColor = Value})
+			ChamsAPI:UpdateConfig({visibleOutlineColor = Value})
 		end
 	})
 
@@ -252,7 +245,7 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsHiddenFillColor",
 		Default = Color3.fromRGB(255, 0, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({hiddenFillColor = Value})
+			ChamsAPI:UpdateConfig({hiddenFillColor = Value})
 		end
 	})
 
@@ -261,22 +254,28 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsHiddenOutlineColor",
 		Default = Color3.fromRGB(255, 0, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({hiddenOutlineColor = Value})
+			ChamsAPI:UpdateConfig({hiddenOutlineColor = Value})
 		end
 	})
 
-	--=============================================================================
-	-- CẤU HÌNH NPC MODE
-	--=============================================================================
-
-	ChamsSection:Label("─ NPC Settings ─")
+	--=== NPC CHAMS ===--
 
 	ChamsSection:Toggle({
-		Name = "NPC Tag Filter",
-		Flag = "ChamsNPCTagFilter",
+		Name = "Enable NPC Chams",
+		Flag = "ChamsNPCToggle",
+		Default = false,
+		Callback = function(Value)
+			ChamsAPI:UpdateConfig({NPCEnabled = Value})
+			ChamsAPI:ToggleNPC(Value)
+		end
+	})
+
+	ChamsSection:Toggle({
+		Name = "Tag Filter",
+		Flag = "ChamsTagFilter",
 		Default = true,
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({EnableTagFilter = Value})
+			ChamsAPI:UpdateConfig({EnableTagFilter = Value})
 		end
 	})
 
@@ -285,7 +284,7 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsAggressiveNPC",
 		Default = false,
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({AggressiveNPCDetection = Value})
+			ChamsAPI:UpdateConfig({AggressiveNPCDetection = Value})
 		end
 	})
 
@@ -294,62 +293,56 @@ return function(EspPage, UnifiedChams)
 		Flag = "ChamsUseNPCColors",
 		Default = false,
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({UseNPCColors = Value})
+			ChamsAPI:UpdateConfig({UseNPCColors = Value})
 		end
 	})
 
-	ChamsSection:Label("Standard NPC Fill"):Colorpicker({
-		Name = "Standard NPC Fill",
-		Flag = "ChamsStandardNPCFill",
+	ChamsSection:Slider({
+		Name = "NPC Max Distance",
+		Flag = "ChamsNPCMaxDistance",
+		Min = 100,
+		Max = 10000,
+		Default = 10000,
+		Decimals = 100,
+		Suffix = "m",
+		Callback = function(Value)
+			ChamsAPI:UpdateConfig({NPCMaxDistance = Value})
+		end
+	})
+
+	ChamsSection:Label("Standard NPC Color"):Colorpicker({
+		Name = "Standard NPC Color",
+		Flag = "ChamsStandardNPCColor",
 		Default = Color3.fromRGB(255, 0, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({StandardNPCFillColor = Value})
+			ChamsAPI:UpdateConfig({StandardNPCColor = Value})
 		end
 	})
 
-	ChamsSection:Label("Standard NPC Outline"):Colorpicker({
-		Name = "Standard NPC Outline",
-		Flag = "ChamsStandardNPCOutline",
-		Default = Color3.fromRGB(255, 0, 0),
-		Callback = function(Value)
-			UnifiedChams:UpdateConfig({StandardNPCOutlineColor = Value})
-		end
-	})
-
-	ChamsSection:Label("Boss NPC Fill"):Colorpicker({
-		Name = "Boss NPC Fill",
-		Flag = "ChamsBossNPCFill",
+	ChamsSection:Label("Boss NPC Color"):Colorpicker({
+		Name = "Boss NPC Color",
+		Flag = "ChamsBossNPCColor",
 		Default = Color3.fromRGB(255, 165, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({BossNPCFillColor = Value})
+			ChamsAPI:UpdateConfig({BossNPCColor = Value})
 		end
 	})
 
-	ChamsSection:Label("Boss NPC Outline"):Colorpicker({
-		Name = "Boss NPC Outline",
-		Flag = "ChamsBossNPCOutline",
+	ChamsSection:Label("NPC Fill Color"):Colorpicker({
+		Name = "NPC Fill Color",
+		Flag = "ChamsNPCFillColor",
 		Default = Color3.fromRGB(255, 165, 0),
 		Callback = function(Value)
-			UnifiedChams:UpdateConfig({BossNPCOutlineColor = Value})
+			ChamsAPI:UpdateConfig({NPCFillColor = Value})
 		end
 	})
 
-	--=============================================================================
-	-- THÔNG TIN TRACKING
-	--=============================================================================
-
-	ChamsSection:Label("─ Info ─")
-
-	ChamsSection:Button({
-		Name = "Refresh Info",
-		Callback = function()
-			local mode = UnifiedChams:GetMode()
-			local targets = UnifiedChams:GetTrackedTargets()
-			local config = UnifiedChams:GetConfig()
-			
-			print("📊 Chams Mode: " .. mode .. " | Tracking: " .. #targets .. " target(s)")
-			print("✓ Enabled: " .. tostring(config.enabled))
-			print("✓ Fill Transparency: " .. config.fillTransparency)
+	ChamsSection:Label("NPC Outline Color"):Colorpicker({
+		Name = "NPC Outline Color",
+		Flag = "ChamsNPCOutlineColor",
+		Default = Color3.fromRGB(255, 165, 0),
+		Callback = function(Value)
+			ChamsAPI:UpdateConfig({NPCOutlineColor = Value})
 		end
 	})
 end
