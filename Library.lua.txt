@@ -204,19 +204,6 @@
     end
 --
 
-function library:is_mobile()
-    local uis = game:GetService("UserInputService")
-    local last_input = uis:GetLastInputType()
-    return last_input == Enum.UserInputType.Touch
-end
-
-function library:add_touch_to_button(button, callback)
-    if button:IsA("GuiButton") then
-        button.MouseButton1Click:Connect(callback)
-        button.TouchTap:Connect(callback)
-    end
-end
-
 -- Library functions 
     -- Misc functions
         function library:tween(obj, properties, easing_style, time) 
@@ -3527,14 +3514,11 @@ end
                         CornerRadius = dim(0, 3)
                     });     
 
-                    local function handle_button_click()
-    cfg.callback(option_data)
-    library:tween(name, {TextColor3 = rgb(245, 245, 245)})
-    cfg.current_element = name
-end
-
-element.MouseButton1Click:Connect(handle_button_click)
-element.TouchTap:Connect(handle_button_click)
+                    button.MouseButton1Click:Connect(function()
+                        local current = cfg.current_element 
+                        if current and current ~= name then 
+                            library:tween(current, {TextColor3 = rgb(72, 72, 72)})
+                        end
 
                         flags[cfg.flag] = option_data
                         cfg.callback(option_data)
@@ -3543,37 +3527,20 @@ element.TouchTap:Connect(handle_button_click)
                     end)
 
                     name.MouseEnter:Connect(function()
-    if cfg.current_element == name then 
-        return 
-    end 
+                        if cfg.current_element == name then 
+                            return 
+                        end 
 
-    library:tween(name, {TextColor3 = rgb(140, 140, 140)})
-end)
+                        library:tween(name, {TextColor3 = rgb(140, 140, 140)})
+                    end)
 
--- MouseLeave - rời chuột
-name.MouseLeave:Connect(function()
-    if cfg.current_element == name then 
-        return 
-    end 
+                    name.MouseLeave:Connect(function()
+                        if cfg.current_element == name then 
+                            return 
+                        end 
 
-    library:tween(name, {TextColor3 = rgb(72, 72, 72)})
-end)
-
--- THÊM: Touch support cho mobile
-name.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.Touch then
-        if cfg.current_element == name then return end
-        library:tween(name, {TextColor3 = rgb(140, 140, 140)})
-    end
-end)
-
-name.InputEnded:Connect(function(input, gameProcessed)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        if cfg.current_element == name then return end
-        library:tween(name, {TextColor3 = rgb(72, 72, 72)})
-    end
-end)
+                        library:tween(name, {TextColor3 = rgb(72, 72, 72)})
+                    end)
                 end
             end
 
@@ -3759,5 +3726,308 @@ end)
         end
     --
 -- 
+
+-- ============================================
+-- MOBILE SUPPORT PATCH FOR MILENIUM LIBRARY
+-- Thêm phần này vào file Library_lua.txt sau dòng 207
+-- ============================================
+
+-- Mobile detection and support functions
+local mobile_support = {}
+
+-- Kiểm tra device là mobile hay không
+function library:is_mobile()
+    local uis = game:GetService("UserInputService")
+    local last_input = uis:GetLastInputType()
+    
+    -- Nếu input cuối cùng là Touch, là mobile
+    if last_input == Enum.UserInputType.Touch then
+        return true
+    end
+    
+    -- Hoặc nếu không có mouse
+    if not mouse then
+        return true
+    end
+    
+    return false
+end
+
+-- Thêm hỗ trợ cảm ứng cho một object
+function library:add_touch_support(object, callbacks)
+    if not object then return end
+    
+    callbacks = callbacks or {}
+    local on_click = callbacks.on_click
+    local on_hover = callbacks.on_hover
+    local on_unhover = callbacks.on_unhover
+    
+    -- Hỗ trợ click/tap
+    if on_click then
+        if object:IsA("GuiButton") then
+            object.MouseButton1Click:Connect(on_click)
+            object.TouchTap:Connect(on_click)
+        else
+            object.InputBegan:Connect(function(input, gameProcessed)
+                if gameProcessed then return end
+                if input.UserInputType == Enum.UserInputType.Touch then
+                    on_click(input)
+                end
+            end)
+        end
+    end
+    
+    -- Hỗ trợ hover
+    if on_hover and on_unhover then
+        object.MouseEnter:Connect(on_hover)
+        object.MouseLeave:Connect(on_unhover)
+        
+        object.InputBegan:Connect(function(input, gameProcessed)
+            if not gameProcessed and input.UserInputType == Enum.UserInputType.Touch then
+                on_hover()
+            end
+        end)
+        
+        object.InputEnded:Connect(function(input, gameProcessed)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                on_unhover()
+            end
+        end)
+    end
+end
+
+-- Lấy vị trí chạm/chuột
+function library:get_touch_position(input)
+    if input and input.UserInputType == Enum.UserInputType.Touch then
+        return input.Position
+    else
+        return mouse.Position
+    end
+end
+
+-- Tạo nút toggle menu cho mobile (thay vì dùng keybind)
+function library:create_mobile_toggle_button(parent)
+    if not self:is_mobile() then return nil end
+    
+    local toggle_btn = self:create("TextButton", {
+        Parent = parent,
+        Name = "MobileMenuToggle",
+        Text = "☰",
+        Size = dim2(0, 50, 0, 50),
+        Position = dim2(1, -70, 0, 20),
+        BackgroundColor3 = themes.preset.accent,
+        TextColor3 = rgb(255, 255, 255),
+        BorderSizePixel = 0,
+        TextSize = 24,
+        AnchorPoint = vec2(1, 0),
+        ZIndex = 999
+    })
+    
+    self:create("UICorner", {
+        Parent = toggle_btn,
+        CornerRadius = dim(0, 8)
+    })
+    
+    self:create("UIStroke", {
+        Parent = toggle_btn,
+        Color = rgb(100, 100, 100),
+        Thickness = 1
+    })
+    
+    return toggle_btn
+end
+
+-- Điều chỉnh kích thước UI cho mobile
+function library:optimize_for_mobile()
+    local is_mobile = self:is_mobile()
+    
+    if is_mobile then
+        -- Tăng kích thước các nút
+        local buttons = library["items"]:FindDescendants()
+        for _, button in ipairs(buttons) do
+            if button:IsA("GuiButton") then
+                -- Tăng padding
+                if button:FindFirstChild("UIPadding") == nil then
+                    self:create("UIPadding", {
+                        Parent = button,
+                        PaddingLeft = dim(0, 10),
+                        PaddingRight = dim(0, 10),
+                        PaddingTop = dim(0, 8),
+                        PaddingBottom = dim(0, 8)
+                    })
+                end
+            end
+            
+            -- Tăng text size
+            if button:IsA("TextLabel") or button:IsA("TextButton") then
+                if button.TextSize and button.TextSize < 14 then
+                    button.TextSize = 14
+                end
+            end
+        end
+    end
+end
+
+-- ============================================
+-- MODIFICATIONS FOR EXISTING FUNCTIONS
+-- ============================================
+
+-- Modify button creation để hỗ trợ mobile
+local original_button_create = library.button
+
+function library:button(window, cfg)
+    local btn = original_button_create(window, cfg)
+    
+    -- Thêm touch support
+    if library:is_mobile() and btn then
+        self:add_touch_support(btn, {
+            on_click = cfg.callback
+        })
+    end
+    
+    return btn
+end
+
+-- Modify toggle creation để hỗ trợ mobile  
+local original_toggle_create = library.toggle
+
+function library:toggle(window, cfg)
+    local tgl = original_toggle_create(window, cfg)
+    
+    if library:is_mobile() and tgl then
+        self:add_touch_support(tgl, {
+            on_click = function()
+                flags[cfg.flag] = not flags[cfg.flag]
+                cfg.callback(flags[cfg.flag])
+            end
+        })
+    end
+    
+    return tgl
+end
+
+-- Modify slider creation để hỗ trợ mobile (drag support)
+function library:mobile_slider_support(slider_object)
+    if not slider_object or not self:is_mobile() then return end
+    
+    local dragging = false
+    local connection
+    
+    slider_object.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            
+            connection = game:GetService("RunService").RenderStepped:Connect(function()
+                if not dragging then
+                    connection:Disconnect()
+                    return
+                end
+                
+                -- Cập nhật vị trí slider dựa trên touch
+                local input_service = game:GetService("UserInputService")
+                local touch_positions = input_service:GetTouchPositions()
+                
+                if #touch_positions > 0 then
+                    local touch_pos = touch_positions[1]
+                    -- Tính toán giá trị slider từ vị trí touch
+                    -- (cần custom code cho từng slider)
+                end
+            end)
+        end
+    end)
+    
+    slider_object.InputEnded:Connect(function(input, gameProcessed)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            if connection then
+                connection:Disconnect()
+            end
+        end
+    end)
+end
+
+-- ============================================
+-- TEXTBOX MOBILE SUPPORT
+-- ============================================
+
+function library:mobile_textbox_support(textbox)
+    if not textbox or not self:is_mobile() then return end
+    
+    textbox.TouchTap:Connect(function()
+        -- Hiển thị on-screen keyboard
+        local success = pcall(function()
+            if game:GetService("TextService") then
+                textbox:CaptureFocus()
+            end
+        end)
+    end)
+    
+    -- Tăng kích thước textbox cho dễ nhập
+    local original_size = textbox.Size
+    textbox.MouseEnter:Connect(function()
+        if self:is_mobile() then
+            textbox.Size = original_size + UDim2.new(0, 0, 0, 10)
+        end
+    end)
+    
+    textbox.MouseLeave:Connect(function()
+        textbox.Size = original_size
+    end)
+end
+
+-- ============================================
+-- INITIALIZATION
+-- ============================================
+
+-- Tự động detect và optimize khi load thư viện
+task.defer(function()
+    if library:is_mobile() then
+        print("[Library] Mobile device detected, applying optimizations...")
+        library:optimize_for_mobile()
+    else
+        print("[Library] Desktop detected")
+    end
+end)
+
+-- ============================================
+-- USAGE EXAMPLE
+-- ============================================
+--[[
+-- Trong code chính của bạn, sử dụng như sau:
+
+local window = library:window({name = "My Menu"})
+
+-- Nếu mobile, tạo nút toggle
+if library:is_mobile() then
+    local toggle = library:create_mobile_toggle_button(library["items"])
+    toggle.MouseButton1Click:Connect(function()
+        window:toggle_menu()
+    end)
+    toggle.TouchTap:Connect(function()
+        window:toggle_menu()
+    end)
+else
+    -- Desktop: dùng keybind bình thường
+    window:keybind({name = "Menu Bind", default = Enum.KeyCode.P})
+end
+
+-- Buttons sẽ tự động hỗ trợ touch
+local btn = window:button({name = "Click me", callback = function() print("Clicked!") end})
+
+-- Cho advanced users, manually add touch support:
+library:add_touch_support(some_object, {
+    on_click = function()
+        print("Tapped!")
+    end,
+    on_hover = function()
+        print("Touching button")
+    end,
+    on_unhover = function()
+        print("Released button")
+    end
+})
+]]
+
 
 return library
