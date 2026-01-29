@@ -1,5 +1,5 @@
 --═══════════════════════════════════════════════════════════════════════════════
---  UNIFIED ESP SYSTEM - PLAYER & NPC WITH DROPDOWN
+--  UNIFIED ESP - WITH PROFESSIONAL BOX SYSTEM (From Example File Logic)
 --═══════════════════════════════════════════════════════════════════════════════
 
 local Services = {
@@ -14,6 +14,7 @@ local Services = {
 --═══════════════════════════════════════════════════════════════════════════════
 
 local LocalPlayer = Services.Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 local Cache = {
 	LocalPlayer = LocalPlayer,
 	Mouse       = LocalPlayer:GetMouse(),
@@ -22,7 +23,7 @@ local Cache = {
 }
 
 --═══════════════════════════════════════════════════════════════════════════════
---  DANH SÁCH TAG NPC (Từ file NPC)
+--  DANH SÁCH TAG NPC
 --═══════════════════════════════════════════════════════════════════════════════
 
 local NPCTags = {
@@ -35,68 +36,60 @@ local NPCTags = {
 	"Boss", "boss", "MiniBoss", "miniboss", "Guard", "guard",
 	"Guardian", "guardian", "Soldier", "soldier", "Warrior", "warrior",
 	"Fighter", "fighter", "Target", "target", "Dummy", "dummy",
-	"Dummies", "dummies", "Skeleton", "skeleton", "Orc", "orc",
-	"Goblin", "goblin", "Robot", "robot", "Drone", "drone",
-	"Android", "android", "Cyborg", "cyborg", "Automaton", "automaton",
-	"Servant", "servant", "Minion", "minion", "Slave", "slave", "Pawn", "pawn",
-	"AI", "ai", "A.I.", "Char", "char", "Character", "character",
-	"Model", "model", "Event", "event", "Special", "special",
-	"Angel", "angel", "Archangel", "archangel", "Crystal", "crystal",
-	"Demon", "demon", "Elf", "elf", "Ghost", "ghost", "Santa", "santa",
-	"Slime", "slime", "Vampire", "vampire", "Void Slime", "void slime",
 }
 
 --═══════════════════════════════════════════════════════════════════════════════
---  GLOBAL CONFIG (Điều khiển cả 2 mode)
+--  GLOBAL CONFIG
 --═══════════════════════════════════════════════════════════════════════════════
 
 local GLOBAL_CONFIG = {
 	-- Chế độ hoạt động
-	Mode = "Player", -- "Player" hoặc "NPC"
+	Mode = "Player",
 	Enabled = false,
 	
-	-- Cấu hình chung cho box
-	BoxColor     = Color3.fromRGB(255, 255, 255),
-	BoxThickness = 0.5,
+	-- Cấu hình chung
+	BoxColor     = Color3.fromRGB(0, 255, 0),
+	BoxThickness = 2,
 	
-	-- Cấu hình Team (chỉ cho Player)
+	-- Team Check
 	EnableTeamCheck = false,
-	ShowEnemyOnly   = false,
-	ShowAlliedOnly  = false,
-	UseTeamColors   = false,
+	ShowEnemyOnly = false,
+	ShowAlliedOnly = false,
+	UseTeamColors = false,
 	UseActualTeamColors = true,
-	EnemyBoxColor   = Color3.fromRGB(255, 0, 0),
-	AlliedBoxColor  = Color3.fromRGB(0, 255, 0),
-	NoTeamColor     = Color3.fromRGB(255, 255, 255),
+	EnemyBoxColor = Color3.fromRGB(255, 0, 0),
+	AlliedBoxColor = Color3.fromRGB(0, 255, 0),
+	NoTeamColor = Color3.fromRGB(255, 255, 255),
 	
-	-- Cấu hình NPC Detection (chỉ cho NPC)
-	EnableTagFilter         = true,
-	AggressiveNPCDetection  = false,
-	UseNPCColors            = false,
-	StandardNPCColor        = Color3.fromRGB(255, 0, 0),
-	BossNPCColor            = Color3.fromRGB(255, 165, 0),
-	
-	-- Cấu hình Gradient (dùng chung)
-	ShowGradient            = false,
-	GradientColor1          = Color3.fromRGB(255, 255, 255),
-	GradientColor2          = Color3.fromRGB(0, 0, 0),
-	GradientTransparency    = 0.7,
-	GradientRotation        = 90,
+	-- Gradient
+	ShowGradient = false,
+	GradientColor1 = Color3.fromRGB(255, 255, 255),
+	GradientColor2 = Color3.fromRGB(0, 0, 0),
+	GradientTransparency = 0.7,
+	GradientRotation = 90,
 	EnableGradientAnimation = false,
-	GradientAnimationSpeed  = 1
+	GradientAnimationSpeed = 1,
+	
+	-- NPC Specific
+	EnableTagFilter = true,
+	AggressiveNPCDetection = false,
+	UseNPCColors = false,
+	StandardNPCColor = Color3.fromRGB(255, 0, 0),
+	BossNPCColor = Color3.fromRGB(255, 165, 0),
 }
 
 --═══════════════════════════════════════════════════════════════════════════════
---  BỘ NHỚ ESP CHUNG
+--  BỘ NHỚ CHUNG
 --═══════════════════════════════════════════════════════════════════════════════
 
 local EspStorage = {
-	Boxes                = {},      -- Lưu tất cả box (Player + NPC)
-	TrackedNPCs          = {},      -- Chỉ tracking NPC
-	GradientConnection   = nil,
-	RotationOffset       = 0,
-	MainScreenGui        = nil,
-	ScanConnection       = nil
+	Boxes           = {},
+	TrackedNPCs     = {},
+	GradientConnection = nil,
+	RenderConnection = nil,
+	ScanConnection = nil,
+	RotationOffset = 0,
+	MainScreenGui = nil
 }
 
 --═══════════════════════════════════════════════════════════════════════════════
@@ -119,7 +112,7 @@ local function initializeScreenGui()
 end
 
 --═══════════════════════════════════════════════════════════════════════════════
---  TEAM SYSTEM (từ Player module)
+--  TEAM SYSTEM
 --═══════════════════════════════════════════════════════════════════════════════
 
 local TeamSystem = {}
@@ -129,88 +122,10 @@ function TeamSystem.getPlayerTeam(targetPlayer)
 	
 	if targetPlayer.Team then
 		return {
-			Name      = targetPlayer.Team.Name,
+			Name = targetPlayer.Team.Name,
 			TeamColor = targetPlayer.Team.TeamColor,
-			Instance  = targetPlayer.Team
+			Instance = targetPlayer.Team
 		}
-	end
-	
-	if targetPlayer.TeamColor and targetPlayer.TeamColor ~= BrickColor.new("White") then
-		return {
-			Name      = targetPlayer.TeamColor.Name,
-			TeamColor = targetPlayer.TeamColor,
-			Instance  = nil
-		}
-	end
-	
-	local teamAttribute = targetPlayer:GetAttribute("Team") 
-		or targetPlayer:GetAttribute("TeamName")
-		or targetPlayer:GetAttribute("PlayerTeam")
-	if teamAttribute then
-		return {
-			Name      = tostring(teamAttribute),
-			TeamColor = nil,
-			Instance  = nil
-		}
-	end
-	
-	local teamValue = targetPlayer:FindFirstChild("Team")
-		or targetPlayer:FindFirstChild("TeamValue")
-		or targetPlayer:FindFirstChild("PlayerTeam")
-	if teamValue then
-		if teamValue:IsA("StringValue") or teamValue:IsA("IntValue") then
-			return {
-				Name      = tostring(teamValue.Value),
-				TeamColor = nil,
-				Instance  = nil
-			}
-		end
-		if teamValue:IsA("ObjectValue") and teamValue.Value then
-			return {
-				Name      = teamValue.Value.Name,
-				TeamColor = nil,
-				Instance  = teamValue.Value
-			}
-		end
-	end
-	
-	local leaderstats = targetPlayer:FindFirstChild("leaderstats")
-	if leaderstats then
-		local teamStat = leaderstats:FindFirstChild("Team")
-			or leaderstats:FindFirstChild("Faction")
-			or leaderstats:FindFirstChild("Side")
-		if teamStat then
-			return {
-				Name      = tostring(teamStat.Value),
-				TeamColor = nil,
-				Instance  = nil
-			}
-		end
-	end
-	
-	local character = targetPlayer.Character
-	if character then
-		local charTeam = character:GetAttribute("Team")
-			or character:GetAttribute("TeamName")
-		if charTeam then
-			return {
-				Name      = tostring(charTeam),
-				TeamColor = nil,
-				Instance  = nil
-			}
-		end
-		
-		local humanoid = character:FindFirstChild("Humanoid")
-		if humanoid then
-			local humTeam = humanoid:GetAttribute("Team")
-			if humTeam then
-				return {
-					Name      = tostring(humTeam),
-					TeamColor = nil,
-					Instance  = nil
-				}
-			end
-		end
 	end
 	
 	return nil
@@ -223,52 +138,25 @@ function TeamSystem.isSameTeam(player1, player2)
 	local team1 = TeamSystem.getPlayerTeam(player1)
 	local team2 = TeamSystem.getPlayerTeam(player2)
 	
-	if not team1 and not team2 then
-		return true
-	end
-	
-	if not team1 or not team2 then
-		return false
-	end
+	if not team1 and not team2 then return true end
+	if not team1 or not team2 then return false end
 	
 	if team1.Instance and team2.Instance then
 		return team1.Instance == team2.Instance
 	end
 	
-	if team1.TeamColor and team2.TeamColor then
-		return team1.TeamColor == team2.TeamColor
-	end
-	
 	return team1.Name == team2.Name
 end
 
-function TeamSystem.getPlayerTeamColor(targetPlayer)
-	if not GLOBAL_CONFIG.UseTeamColors then
-		return GLOBAL_CONFIG.BoxColor
-	end
-	
-	if not GLOBAL_CONFIG.UseActualTeamColors then
-		local isEnemy = not TeamSystem.isSameTeam(Cache.LocalPlayer, targetPlayer)
-		return isEnemy and GLOBAL_CONFIG.EnemyBoxColor or GLOBAL_CONFIG.AlliedBoxColor
-	end
-	
-	local team = TeamSystem.getPlayerTeam(targetPlayer)
-	if team and team.TeamColor then
-		return team.TeamColor.Color
-	end
-	
-	return GLOBAL_CONFIG.NoTeamColor
-end
-
 --═══════════════════════════════════════════════════════════════════════════════
---  NPC SYSTEM (từ NPC module)
+--  NPC SYSTEM
 --═══════════════════════════════════════════════════════════════════════════════
 
 local NPCSystem = {}
 
 function NPCSystem.isPlayer(character)
 	if not character or not character:IsA("Model") then return false end
-	if character == Cache.LocalPlayer.Character then return true end
+	if character == LocalPlayer.Character then return true end
 	local player = Services.Players:GetPlayerFromCharacter(character)
 	return player ~= nil
 end
@@ -297,7 +185,7 @@ function NPCSystem.isNPC(character)
 	end
 	
 	local npcFolders = {"NPCs", "Enemies", "Bots", "Mobs", "Targets", "Enemy", "Hostile",
-		"Monsters", "Zombies", "Creatures", "Characters", "Spawns", "EnemySpawns", "NPCSpawns", "Bosses", "Minions"}
+		"Monsters", "Zombies", "Creatures", "Characters", "Spawns", "EnemySpawns", "NPCSpawns", "Bosses"}
 	
 	for _, folderName in pairs(npcFolders) do
 		local folder = workspace:FindFirstChild(folderName)
@@ -321,65 +209,109 @@ function NPCSystem.isBoss(character)
 		return true
 	end
 	
-	if character:GetAttribute("IsBoss") == true then
-		return true
-	end
-	
-	local bossValue = character:FindFirstChild("IsBoss")
-	if bossValue and bossValue:IsA("BoolValue") and bossValue.Value == true then
-		return true
-	end
-	
 	return false
-end
-
-function NPCSystem.getNPCColor(npcCharacter)
-	if GLOBAL_CONFIG.UseNPCColors then
-		return NPCSystem.isBoss(npcCharacter) and GLOBAL_CONFIG.BossNPCColor or GLOBAL_CONFIG.StandardNPCColor
-	end
-	return GLOBAL_CONFIG.BoxColor
 end
 
 function NPCSystem.findNPCsRecursive(parent)
 	local foundNPCs = {}
-	
 	for _, instance in pairs(parent:GetDescendants()) do
 		if NPCSystem.isNPC(instance) then
 			table.insert(foundNPCs, instance)
 		end
 	end
-	
 	return foundNPCs
 end
 
 --═══════════════════════════════════════════════════════════════════════════════
---  UTILS (Dùng chung)
+--  UTILS
 --═══════════════════════════════════════════════════════════════════════════════
 
 local Utils = {}
 
 function Utils.getViewportSize()
-	local viewportSize = Cache.Camera.ViewportSize
+	local viewportSize = Camera.ViewportSize
 	return {
 		X = viewportSize.X,
 		Y = viewportSize.Y
 	}
 end
 
+function Utils.getScreenPos(worldPosition)
+	local viewport = Camera.ViewportSize
+	local localPos = Camera.CFrame:PointToObjectSpace(worldPosition)
+	
+	local aspectRatio = viewport.X / viewport.Y
+	local halfHeight = -localPos.Z * math.tan(math.rad(Camera.FieldOfView / 2))
+	local halfWidth = aspectRatio * halfHeight
+	
+	local farPlaneCorner = Vector3.new(-halfWidth, halfHeight, localPos.Z)
+	local relativePos = localPos - farPlaneCorner
+	
+	local screenX = relativePos.X / (halfWidth * 2)
+	local screenY = -relativePos.Y / (halfHeight * 2)
+	
+	local isOnScreen = -localPos.Z > 0 and screenX >= 0 and screenX <= 1 and screenY >= 0 and screenY <= 1
+	
+	return Vector3.new(screenX * viewport.X, screenY * viewport.Y, -localPos.Z), isOnScreen
+end
+
+function Utils.boxSolve(torso)
+	if not torso then
+		return nil, nil, nil
+	end
+	
+	local viewportTop = torso.Position + (torso.CFrame.UpVector * 1.8) + Camera.CFrame.UpVector
+	local viewportBottom = torso.Position - (torso.CFrame.UpVector * 2.5) - Camera.CFrame.UpVector
+	local distance = (torso.Position - Camera.CFrame.p).Magnitude
+
+	local top, topIsRendered = Utils.getScreenPos(viewportTop)
+	local bottom, bottomIsRendered = Utils.getScreenPos(viewportBottom)
+
+	local width = math.max(math.floor(math.abs(top.X - bottom.X)), 3)
+	local height = math.max(math.floor(math.max(math.abs(bottom.Y - top.Y), width / 2)), 3)
+	local boxSize = Vector2.new(math.floor(math.max(height / 1.5, width)), height)
+	local boxPos = Vector2.new(math.floor(top.X * 0.5 + bottom.X * 0.5 - boxSize.X * 0.5), math.floor(math.min(top.Y, bottom.Y)))
+	
+	return boxSize, boxPos, topIsRendered, distance
+end
+
 function Utils.getBoxColor(target)
 	-- Nếu là player
-	if Services.Players:GetPlayerFromCharacter(target.Parent or target) then
-		return TeamSystem.getPlayerTeamColor(Services.Players:GetPlayerFromCharacter(target.Parent or target))
+	if Services.Players:GetPlayerFromCharacter(target) then
+		local targetPlayer = Services.Players:GetPlayerFromCharacter(target)
+		if GLOBAL_CONFIG.UseTeamColors then
+			if GLOBAL_CONFIG.UseActualTeamColors then
+				local team = TeamSystem.getPlayerTeam(targetPlayer)
+				if team and team.TeamColor then
+					return team.TeamColor.Color
+				end
+			else
+				local isEnemy = not TeamSystem.isSameTeam(LocalPlayer, targetPlayer)
+				if isEnemy then
+					return GLOBAL_CONFIG.EnemyBoxColor
+				else
+					return GLOBAL_CONFIG.AlliedBoxColor
+				end
+			end
+			return GLOBAL_CONFIG.NoTeamColor
+		end
+	-- Nếu là NPC
+	elseif target:IsA("Model") and NPCSystem.isNPC(target) then
+		if GLOBAL_CONFIG.UseNPCColors then
+			local isBoss = NPCSystem.isBoss(target)
+			if isBoss then
+				return GLOBAL_CONFIG.BossNPCColor
+			else
+				return GLOBAL_CONFIG.StandardNPCColor
+			end
+		end
 	end
-	-- Nếu là NPC character
-	if target:IsA("Model") and NPCSystem.isNPC(target) then
-		return NPCSystem.getNPCColor(target)
-	end
+	
 	return GLOBAL_CONFIG.BoxColor
 end
 
 --═══════════════════════════════════════════════════════════════════════════════
---  GRADIENT ANIMATION (Dùng chung)
+--  GRADIENT ANIMATION
 --═══════════════════════════════════════════════════════════════════════════════
 
 local GradientManager = {}
@@ -411,7 +343,7 @@ function GradientManager.stop()
 end
 
 --═══════════════════════════════════════════════════════════════════════════════
---  BOX MANAGER (Dùng chung cho cả Player và NPC)
+--  BOX MANAGER (Professional Box System from Example)
 --═══════════════════════════════════════════════════════════════════════════════
 
 local BoxManager = {}
@@ -421,21 +353,37 @@ function BoxManager.create(target)
 		return EspStorage.Boxes[target]
 	end
 	
-	-- Main box frame
-	local boxFrame = Instance.new("Frame")
-	boxFrame.Name = "ESPBox"
-	boxFrame.BackgroundTransparency = 1
-	boxFrame.BorderSizePixel = 0
-	boxFrame.Parent = EspStorage.MainScreenGui
+	-- Main holder frame
+	local holder = Instance.new("Frame")
+	holder.Name = "Holder"
+	holder.BackgroundTransparency = 1
+	holder.BorderSizePixel = 0
+	holder.Parent = EspStorage.MainScreenGui
 	
-	-- UIStroke for clean outline (like Image 1)
-	local uiStroke = Instance.new("UIStroke")
-	uiStroke.Thickness = GLOBAL_CONFIG.BoxThickness
-	uiStroke.Color = GLOBAL_CONFIG.BoxColor
-	uiStroke.LineJoinMode = Enum.LineJoinMode.Miter
-	uiStroke.Parent = boxFrame
+	-- Box outline (outer stroke - GREEN)
+	local boxOutline = Instance.new("UIStroke")
+	boxOutline.Thickness = GLOBAL_CONFIG.BoxThickness
+	boxOutline.Color = GLOBAL_CONFIG.BoxColor
+	boxOutline.LineJoinMode = Enum.LineJoinMode.Miter
+	boxOutline.Parent = holder
 	
-	-- Gradient frame (optional overlay)
+	-- Box handler (inner black border)
+	local boxHandler = Instance.new("Frame")
+	boxHandler.Name = "BoxHandler"
+	boxHandler.BackgroundTransparency = 1
+	boxHandler.BorderSizePixel = 0
+	boxHandler.Position = UDim2.new(0, 1, 0, 1)
+	boxHandler.Size = UDim2.new(1, -2, 1, -2)
+	boxHandler.Parent = holder
+	
+	-- Inner stroke (black outline)
+	local innerStroke = Instance.new("UIStroke")
+	innerStroke.Thickness = 1
+	innerStroke.Color = Color3.fromRGB(0, 0, 0)
+	innerStroke.LineJoinMode = Enum.LineJoinMode.Miter
+	innerStroke.Parent = boxHandler
+	
+	-- Gradient frame (optional)
 	local gradientFrame = Instance.new("Frame")
 	gradientFrame.Name = "BoxGradient"
 	gradientFrame.BorderSizePixel = 0
@@ -443,7 +391,7 @@ function BoxManager.create(target)
 	gradientFrame.Size = UDim2.new(1, 0, 1, 0)
 	gradientFrame.BackgroundTransparency = GLOBAL_CONFIG.GradientTransparency
 	gradientFrame.Visible = GLOBAL_CONFIG.ShowGradient
-	gradientFrame.Parent = boxFrame
+	gradientFrame.Parent = holder
 	
 	local uiGradient = Instance.new("UIGradient")
 	uiGradient.Rotation = GLOBAL_CONFIG.GradientRotation
@@ -454,8 +402,10 @@ function BoxManager.create(target)
 	uiGradient.Parent = gradientFrame
 	
 	EspStorage.Boxes[target] = {
-		Box         = boxFrame,
-		UIStroke    = uiStroke,
+		Holder      = holder,
+		BoxOutline  = boxOutline,
+		BoxHandler  = boxHandler,
+		InnerStroke = innerStroke,
 		BoxGradient = gradientFrame,
 		UIGradient  = uiGradient
 	}
@@ -464,81 +414,71 @@ function BoxManager.create(target)
 end
 
 function BoxManager.update(target, espData)
-	if not espData or not espData.Box then return end
+	if not espData or not espData.Holder then return end
 	
 	local character
 	
-	-- Nếu target là Player instance
 	if target:IsA("Player") then
 		character = target.Character
-	-- Nếu target là Character (Model)
 	elseif target:IsA("Model") then
 		character = target
 	else
-		espData.Box.Visible = false
+		espData.Holder.Visible = false
 		return
 	end
 	
 	if not character then
-		espData.Box.Visible = false
+		espData.Holder.Visible = false
 		return
 	end
 	
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 	if not humanoidRootPart then
-		espData.Box.Visible = false
+		espData.Holder.Visible = false
 		return
 	end
 	
 	local humanoid = character:FindFirstChild("Humanoid")
 	if not humanoid or humanoid.Health <= 0 then
-		espData.Box.Visible = false
+		espData.Holder.Visible = false
 		return
 	end
 	
-	-- Team check (chỉ cho Player)
+	-- Team check (for players only)
 	if target:IsA("Player") and GLOBAL_CONFIG.EnableTeamCheck then
-		local isEnemyPlayer = not TeamSystem.isSameTeam(Cache.LocalPlayer, target)
+		local isEnemyPlayer = not TeamSystem.isSameTeam(LocalPlayer, target)
 		
 		if GLOBAL_CONFIG.ShowEnemyOnly and not isEnemyPlayer then
-			espData.Box.Visible = false
+			espData.Holder.Visible = false
 			return
 		end
 		
 		if GLOBAL_CONFIG.ShowAlliedOnly and isEnemyPlayer then
-			espData.Box.Visible = false
+			espData.Holder.Visible = false
 			return
 		end
 	end
 	
-	-- Tính toán kích thước box
-	local charSize = character:GetExtentsSize()
-	local boxHeight = charSize.Y * 0.8
-	local boxWidth = charSize.X * 0.8
+	-- Box solving (same logic as example file)
+	local boxSize, boxPos, onScreen, distance = Utils.boxSolve(humanoidRootPart)
 	
-	-- Tính vị trí trên màn hình
-	local camera = Cache.Camera or workspace.CurrentCamera
-	local viewportSize = Utils.getViewportSize()
-	
-	local headTop = humanoidRootPart.Position + Vector3.new(0, charSize.Y / 2, 0)
-	local feetBottom = humanoidRootPart.Position - Vector3.new(0, charSize.Y / 1.4, 0)
-	
-	local headScreenPos, headOnScreen = camera:WorldToViewportPoint(headTop)
-	local feetScreenPos, feetOnScreen = camera:WorldToViewportPoint(feetBottom)
-	
-	local screenX = (headScreenPos.X + feetScreenPos.X) / 2
-	local screenYTop = headScreenPos.Y
-	
-	local displayHeight = math.abs(feetScreenPos.Y - headScreenPos.Y)
-	local displayWidth = displayHeight * (boxWidth / boxHeight)
-	
-	espData.Box.Size = UDim2.new(0, displayWidth, 0, displayHeight)
-	espData.Box.Position = UDim2.new(0, screenX - displayWidth / 2, 0, screenYTop)
-	
-	if espData.UIStroke then
-		espData.UIStroke.Thickness = GLOBAL_CONFIG.BoxThickness
+	if not boxSize or not boxPos then
+		espData.Holder.Visible = false
+		return
 	end
 	
+	-- Update position and size
+	espData.Holder.Position = UDim2.fromOffset(boxPos.X, boxPos.Y)
+	espData.Holder.Size = UDim2.fromOffset(boxSize.X, boxSize.Y)
+	
+	-- Update colors
+	local boxColor = Utils.getBoxColor(character)
+	if espData.BoxOutline then
+		espData.BoxOutline.Color = boxColor
+		espData.BoxOutline.Thickness = GLOBAL_CONFIG.BoxThickness
+	end
+	
+	-- Update gradient
 	if espData.BoxGradient then
 		espData.BoxGradient.Visible = GLOBAL_CONFIG.ShowGradient
 		espData.BoxGradient.BackgroundTransparency = GLOBAL_CONFIG.GradientTransparency
@@ -554,23 +494,15 @@ function BoxManager.update(target, espData)
 		end
 	end
 	
-	local boxColor = Utils.getBoxColor(character)
-	if espData.UIStroke then
-		espData.UIStroke.Color = boxColor
-	end
-	
-	local isInFront = headScreenPos.Z > 0
-	local isInViewportX = screenX > -displayWidth and screenX < viewportSize.X + displayWidth
-	local isInViewportY = screenYTop > -displayHeight and screenYTop < viewportSize.Y + displayHeight
-	
-	espData.Box.Visible = GLOBAL_CONFIG.Enabled and isInFront and isInViewportX and isInViewportY
+	-- Visibility check
+	espData.Holder.Visible = GLOBAL_CONFIG.Enabled and onScreen
 end
 
 function BoxManager.remove(target)
 	local espData = EspStorage.Boxes[target]
 	if espData then
-		if espData.Box then
-			espData.Box:Destroy()
+		if espData.Holder then
+			espData.Holder:Destroy()
 		end
 		EspStorage.Boxes[target] = nil
 	end
@@ -588,13 +520,13 @@ function BoxManager.updateAll()
 end
 
 --═══════════════════════════════════════════════════════════════════════════════
---  PLAYER MODE HANDLER
+--  PLAYER MODE
 --═══════════════════════════════════════════════════════════════════════════════
 
 local PlayerMode = {}
 
 function PlayerMode.onPlayerAdded(newPlayer)
-	if newPlayer ~= Cache.LocalPlayer then
+	if newPlayer ~= LocalPlayer then
 		task.wait(0.5)
 		BoxManager.create(newPlayer)
 	end
@@ -605,14 +537,12 @@ function PlayerMode.onPlayerRemoving(leavingPlayer)
 end
 
 function PlayerMode.initialize()
-	-- Tạo box cho tất cả player hiện có
 	for _, otherPlayer in pairs(Services.Players:GetPlayers()) do
-		if otherPlayer ~= Cache.LocalPlayer then
+		if otherPlayer ~= LocalPlayer then
 			PlayerMode.onPlayerAdded(otherPlayer)
 		end
 	end
 	
-	-- Đăng ký sự kiện
 	Services.Players.PlayerAdded:Connect(function(player)
 		if GLOBAL_CONFIG.Mode == "Player" then
 			PlayerMode.onPlayerAdded(player)
@@ -627,7 +557,6 @@ function PlayerMode.initialize()
 end
 
 function PlayerMode.cleanup()
-	-- Xóa tất cả player boxes
 	local playersToRemove = {}
 	for target in pairs(EspStorage.Boxes) do
 		if target:IsA("Player") then
@@ -641,7 +570,7 @@ function PlayerMode.cleanup()
 end
 
 --═══════════════════════════════════════════════════════════════════════════════
---  NPC MODE HANDLER
+--  NPC MODE
 --═══════════════════════════════════════════════════════════════════════════════
 
 local NPCMode = {}
@@ -654,14 +583,12 @@ function NPCMode.scanForNPCs()
 		foundSet[npc] = true
 	end
 	
-	-- Xóa NPC không còn tồn tại
 	for npc in pairs(EspStorage.TrackedNPCs) do
 		if not foundSet[npc] or not npc.Parent then
 			BoxManager.remove(npc)
 		end
 	end
 	
-	-- Thêm NPC mới
 	for _, npc in pairs(foundNPCs) do
 		if not EspStorage.TrackedNPCs[npc] then
 			EspStorage.TrackedNPCs[npc] = true
@@ -671,10 +598,8 @@ function NPCMode.scanForNPCs()
 end
 
 function NPCMode.initialize()
-	-- Quét NPC lần đầu
 	NPCMode.scanForNPCs()
 	
-	-- Quét NPC mới theo định kỳ
 	if not EspStorage.ScanConnection then
 		EspStorage.ScanConnection = Services.RunService.Heartbeat:Connect(function()
 			if GLOBAL_CONFIG.Mode == "NPC" then
@@ -685,7 +610,6 @@ function NPCMode.initialize()
 end
 
 function NPCMode.cleanup()
-	-- Xóa tất cả NPC boxes
 	local npcsToRemove = {}
 	for target in pairs(EspStorage.Boxes) do
 		if target:IsA("Model") and NPCSystem.isNPC(target) then
@@ -707,7 +631,6 @@ end
 local function switchMode(newMode)
 	if newMode == GLOBAL_CONFIG.Mode then return end
 	
-	-- Xóa toàn bộ boxes khi switch mode
 	for target in pairs(EspStorage.Boxes) do
 		BoxManager.remove(target)
 	end
@@ -730,18 +653,13 @@ end
 --═══════════════════════════════════════════════════════════════════════════════
 
 local function initialize()
-	-- Tạo ScreenGui
 	initializeScreenGui()
-	
-	-- Khởi tạo Player mode mặc định
 	PlayerMode.initialize()
 	
-	-- Vòng lặp render chính
-	Services.RunService.RenderStepped:Connect(function()
+	EspStorage.RenderConnection = Services.RunService.RenderStepped:Connect(function()
 		BoxManager.updateAll()
 	end)
 	
-	-- Cập nhật camera reference
 	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
 		Cache.Camera = workspace.CurrentCamera
 	end)
@@ -750,12 +668,11 @@ end
 initialize()
 
 --═══════════════════════════════════════════════════════════════════════════════
---  PUBLIC API - MODULE EXPORT
+--  PUBLIC API
 --═══════════════════════════════════════════════════════════════════════════════
 
 local UnifiedESPModule = {}
 
--- Cập nhật config
 function UnifiedESPModule:UpdateConfig(newConfig)
 	for key, value in pairs(newConfig) do
 		if GLOBAL_CONFIG[key] ~= nil then
@@ -772,17 +689,14 @@ function UnifiedESPModule:UpdateConfig(newConfig)
 	end
 end
 
--- Lấy config hiện tại
 function UnifiedESPModule:GetConfig()
 	return GLOBAL_CONFIG
 end
 
--- Bật/tắt ESP
 function UnifiedESPModule:Toggle(state)
 	GLOBAL_CONFIG.Enabled = state
 end
 
--- **CHÍNH: Đổi mode (Player hoặc NPC)**
 function UnifiedESPModule:SetMode(mode)
 	if mode == "Player" or mode == "NPC" then
 		switchMode(mode)
@@ -791,18 +705,19 @@ function UnifiedESPModule:SetMode(mode)
 	end
 end
 
--- Lấy mode hiện tại
 function UnifiedESPModule:GetMode()
 	return GLOBAL_CONFIG.Mode
 end
 
--- Xóa module
 function UnifiedESPModule:Destroy()
 	GradientManager.stop()
 	
+	if EspStorage.RenderConnection then
+		EspStorage.RenderConnection:Disconnect()
+	end
+	
 	if EspStorage.ScanConnection then
 		EspStorage.ScanConnection:Disconnect()
-		EspStorage.ScanConnection = nil
 	end
 	
 	for target in pairs(EspStorage.Boxes) do
@@ -814,16 +729,6 @@ function UnifiedESPModule:Destroy()
 	end
 end
 
--- Lấy danh sách NPC đang tracking
-function UnifiedESPModule:GetTrackedNPCs()
-	local npcList = {}
-	for npc in pairs(EspStorage.TrackedNPCs) do
-		table.insert(npcList, npc)
-	end
-	return npcList
-end
-
--- Lấy danh sách Player boxes
 function UnifiedESPModule:GetTrackedPlayers()
 	local playerList = {}
 	for target in pairs(EspStorage.Boxes) do
@@ -832,6 +737,14 @@ function UnifiedESPModule:GetTrackedPlayers()
 		end
 	end
 	return playerList
+end
+
+function UnifiedESPModule:GetTrackedNPCs()
+	local npcList = {}
+	for npc in pairs(EspStorage.TrackedNPCs) do
+		table.insert(npcList, npc)
+	end
+	return npcList
 end
 
 return UnifiedESPModule
