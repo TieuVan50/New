@@ -6,6 +6,32 @@ return function(EspPage, ChamsAPI)
 		Side = 2
 	})
 
+	--=== MODE SELECTION ===--
+
+	ChamsSection:Dropdown({
+		Name = "Chams Mode",
+		Flag = "ChamsMode",
+		Default = "Player",
+		Items = {"Player", "NPC", "Both"},
+		Multi = false,
+		Callback = function(Value)
+			local selectedMode = type(Value) == "table" and Value[1] or Value
+			
+			if selectedMode == "Player" then
+				ChamsAPI:Toggle(true)
+				ChamsAPI:ToggleNPC(false)
+			elseif selectedMode == "NPC" then
+				ChamsAPI:Toggle(false)
+				ChamsAPI:ToggleNPC(true)
+			elseif selectedMode == "Both" then
+				ChamsAPI:Toggle(true)
+				ChamsAPI:ToggleNPC(true)
+			end
+			
+			print("✓ Chams Mode: " .. selectedMode)
+		end
+	})
+
 	--=== PLAYER CHAMS ===--
 	
 	ChamsSection:Toggle({
