@@ -421,126 +421,19 @@ function BoxManager.create(target)
 		return EspStorage.Boxes[target]
 	end
 	
-	-- Main box holder
+	-- Main box frame
 	local boxFrame = Instance.new("Frame")
 	boxFrame.Name = "ESPBox"
 	boxFrame.BackgroundTransparency = 1
 	boxFrame.BorderSizePixel = 0
 	boxFrame.Parent = EspStorage.MainScreenGui
 	
-	-- Standard box with stroke (for non-corner mode)
-	local boxHandler = Instance.new("Frame")
-	boxHandler.Name = "BoxHandler"
-	boxHandler.BackgroundTransparency = 1
-	boxHandler.BorderSizePixel = 0
-	boxHandler.Position = UDim2.new(0, 1, 0, 1)
-	boxHandler.Size = UDim2.new(1, -2, 1, -2)
-	boxHandler.Parent = boxFrame
-	
+	-- UIStroke for clean outline (like Image 1)
 	local uiStroke = Instance.new("UIStroke")
 	uiStroke.Thickness = GLOBAL_CONFIG.BoxThickness
 	uiStroke.Color = GLOBAL_CONFIG.BoxColor
 	uiStroke.LineJoinMode = Enum.LineJoinMode.Miter
-	uiStroke.Parent = boxHandler
-	
-	-- Corner boxes (for corner mode)
-	local cornersFrame = Instance.new("Frame")
-	cornersFrame.Name = "Corners"
-	cornersFrame.BackgroundTransparency = 1
-	cornersFrame.BorderSizePixel = 0
-	cornersFrame.Position = UDim2.new(0, -1, 0, 2)
-	cornersFrame.Size = UDim2.new(1, 0, 1, 0)
-	cornersFrame.Parent = boxFrame
-	
-	-- Create 4 corners (Top-Left, Top-Right, Bottom-Left, Bottom-Right)
-	local cornerSize = 6 -- Size of each corner
-	local corners = {}
-	
-	-- Top-Left corner (vertical part)
-	local tl_v = Instance.new("Frame")
-	tl_v.Name = "TL_V"
-	tl_v.Position = UDim2.new(0, 0, 0, -2)
-	tl_v.Size = UDim2.new(0, cornerSize, 0, cornerSize + 2)
-	tl_v.BorderSizePixel = 0
-	tl_v.BackgroundColor3 = GLOBAL_CONFIG.BoxColor
-	tl_v.Parent = cornersFrame
-	table.insert(corners, tl_v)
-	
-	-- Top-Left corner (horizontal part)
-	local tl_h = Instance.new("Frame")
-	tl_h.Name = "TL_H"
-	tl_h.Position = UDim2.new(0, 0, 0, 1)
-	tl_h.Size = UDim2.new(0.3, 0, 0, cornerSize - 2)
-	tl_h.BorderSizePixel = 0
-	tl_h.BackgroundColor3 = GLOBAL_CONFIG.BoxColor
-	tl_h.Parent = cornersFrame
-	table.insert(corners, tl_h)
-	
-	-- Top-Right corner (vertical part)
-	local tr_v = Instance.new("Frame")
-	tr_v.Name = "TR_V"
-	tr_v.AnchorPoint = Vector2.new(1, 0)
-	tr_v.Position = UDim2.new(1, 0, 0, -2)
-	tr_v.Size = UDim2.new(0, cornerSize, 0, cornerSize + 2)
-	tr_v.BorderSizePixel = 0
-	tr_v.BackgroundColor3 = GLOBAL_CONFIG.BoxColor
-	tr_v.Parent = cornersFrame
-	table.insert(corners, tr_v)
-	
-	-- Top-Right corner (horizontal part)
-	local tr_h = Instance.new("Frame")
-	tr_h.Name = "TR_H"
-	tr_h.AnchorPoint = Vector2.new(1, 0)
-	tr_h.Position = UDim2.new(1, 0, 0, 1)
-	tr_h.Size = UDim2.new(0.3, 0, 0, cornerSize - 2)
-	tr_h.BorderSizePixel = 0
-	tr_h.BackgroundColor3 = GLOBAL_CONFIG.BoxColor
-	tr_h.Parent = cornersFrame
-	table.insert(corners, tr_h)
-	
-	-- Bottom-Left corner (vertical part)
-	local bl_v = Instance.new("Frame")
-	bl_v.Name = "BL_V"
-	bl_v.AnchorPoint = Vector2.new(0, 1)
-	bl_v.Position = UDim2.new(0, 0, 1, 2)
-	bl_v.Size = UDim2.new(0, cornerSize, 0, cornerSize + 2)
-	bl_v.BorderSizePixel = 0
-	bl_v.BackgroundColor3 = GLOBAL_CONFIG.BoxColor
-	bl_v.Parent = cornersFrame
-	table.insert(corners, bl_v)
-	
-	-- Bottom-Left corner (horizontal part)
-	local bl_h = Instance.new("Frame")
-	bl_h.Name = "BL_H"
-	bl_h.AnchorPoint = Vector2.new(0, 1)
-	bl_h.Position = UDim2.new(0, 0, 1, -1)
-	bl_h.Size = UDim2.new(0.3, 0, 0, cornerSize - 2)
-	bl_h.BorderSizePixel = 0
-	bl_h.BackgroundColor3 = GLOBAL_CONFIG.BoxColor
-	bl_h.Parent = cornersFrame
-	table.insert(corners, bl_h)
-	
-	-- Bottom-Right corner (vertical part)
-	local br_v = Instance.new("Frame")
-	br_v.Name = "BR_V"
-	br_v.AnchorPoint = Vector2.new(1, 1)
-	br_v.Position = UDim2.new(1, 0, 1, 2)
-	br_v.Size = UDim2.new(0, cornerSize, 0, cornerSize + 2)
-	br_v.BorderSizePixel = 0
-	br_v.BackgroundColor3 = GLOBAL_CONFIG.BoxColor
-	br_v.Parent = cornersFrame
-	table.insert(corners, br_v)
-	
-	-- Bottom-Right corner (horizontal part)
-	local br_h = Instance.new("Frame")
-	br_h.Name = "BR_H"
-	br_h.AnchorPoint = Vector2.new(1, 1)
-	br_h.Position = UDim2.new(1, 0, 1, -1)
-	br_h.Size = UDim2.new(0.3, 0, 0, cornerSize - 2)
-	br_h.BorderSizePixel = 0
-	br_h.BackgroundColor3 = GLOBAL_CONFIG.BoxColor
-	br_h.Parent = cornersFrame
-	table.insert(corners, br_h)
+	uiStroke.Parent = boxFrame
 	
 	-- Gradient frame (optional overlay)
 	local gradientFrame = Instance.new("Frame")
@@ -562,10 +455,7 @@ function BoxManager.create(target)
 	
 	EspStorage.Boxes[target] = {
 		Box         = boxFrame,
-		BoxHandler  = boxHandler,
 		UIStroke    = uiStroke,
-		Corners     = corners,
-		CornersFrame = cornersFrame,
 		BoxGradient = gradientFrame,
 		UIGradient  = uiGradient
 	}
@@ -667,13 +557,6 @@ function BoxManager.update(target, espData)
 	local boxColor = Utils.getBoxColor(character)
 	if espData.UIStroke then
 		espData.UIStroke.Color = boxColor
-	end
-	
-	-- Update corner colors
-	if espData.Corners then
-		for _, corner in pairs(espData.Corners) do
-			corner.BackgroundColor3 = boxColor
-		end
 	end
 	
 	local isInFront = headScreenPos.Z > 0
