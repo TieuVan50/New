@@ -1,30 +1,31 @@
---═══════════════════════════════════════════════════════════════════════════════
---  CHAMS SYSTEM - PLAYER & NPC WITH CHAMS RENDERING
---═══════════════════════════════════════════════════════════════════════════════
+--=============================================================================
+-- CHAMS ESP API MODULE - WITH NPC SUPPORT
+--=============================================================================
 
-local Services = {
-	Players         = game:GetService("Players"),
-	RunService      = game:GetService("RunService"),
-	UserInputService = game:GetService("UserInputService"),
-	TweenService    = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+if not LocalPlayer then
+	Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+	LocalPlayer = Players.LocalPlayer
+end
+
+type HighlightData = {
+	highlight: Highlight?,
+	lastUpdateTick: number,
+	isNPC: boolean
 }
 
---═══════════════════════════════════════════════════════════════════════════════
---  CACHE & REFERENCES
---═══════════════════════════════════════════════════════════════════════════════
-
-local LocalPlayer = Services.Players.LocalPlayer
-local Cache = {
-	LocalPlayer = LocalPlayer,
-	Mouse       = LocalPlayer:GetMouse(),
-	Camera      = workspace.CurrentCamera,
-	PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
+type PlayerCache = {
+	[Player]: HighlightData
 }
 
---═══════════════════════════════════════════════════════════════════════════════
---  NPC TAGS LIST
---═══════════════════════════════════════════════════════════════════════════════
+type NPCCache = {
+	[Model]: HighlightData
+}
 
+-- Danh sách tag NPC (từ ESP dropdown)
 local NPCTags = {
 	"NPC", "Npc", "npc", "Enemy", "enemy", "Enemies", "enemies",
 	"Hostile", "hostile", "Bad", "bad", "BadGuy", "badguy",
@@ -46,130 +47,132 @@ local NPCTags = {
 	"Slime", "slime", "Vampire", "vampire", "Void Slime", "void slime",
 }
 
---═══════════════════════════════════════════════════════════════════════════════
---  CHAMS CONFIG
---═══════════════════════════════════════════════════════════════════════════════
-
-local CHAMS_CONFIG = {
-	-- PLAYER CHAMS
+-- Configuration
+local ChamsConfig = {
 	enabled = false,
+	maxDistance = 10000,
+	updateInterval = 0.05,
+	batchSize = 5,
+	
+	-- Player Chams
+	fillColor = Color3.fromRGB(0, 255, 140),
+	outlineColor = Color3.fromRGB(0, 255, 140),
+	visibleFillColor = Color3.fromRGB(0, 255, 0),
+	visibleOutlineColor = Color3.fromRGB(0, 255, 0),
+	hiddenFillColor = Color3.fromRGB(255, 0, 0),
+	hiddenOutlineColor = Color3.fromRGB(255, 0, 0),
+	fillTransparency = 0.5,
+	outlineTransparency = 0,
+	
 	EnableTeamCheck = false,
 	ShowEnemyOnly = false,
 	ShowAlliedOnly = false,
-	useVisibilityColors = false,
-	useRaycasting = false,
-	depthMode = "AlwaysOnTop",
-	fillTransparency = 0.5,
-	outlineTransparency = 0,
 	UseTeamColors = false,
 	UseActualTeamColors = true,
-	
-	fillColor = Color3.fromRGB(0, 255, 140),
-	outlineColor = Color3.fromRGB(0, 255, 140),
 	EnemyFillColor = Color3.fromRGB(255, 0, 0),
 	EnemyOutlineColor = Color3.fromRGB(255, 0, 0),
 	AlliedFillColor = Color3.fromRGB(0, 255, 0),
 	AlliedOutlineColor = Color3.fromRGB(0, 255, 0),
 	NoTeamColor = Color3.fromRGB(255, 255, 255),
-	visibleFillColor = Color3.fromRGB(0, 255, 0),
-	visibleOutlineColor = Color3.fromRGB(0, 255, 0),
-	hiddenFillColor = Color3.fromRGB(255, 0, 0),
-	hiddenOutlineColor = Color3.fromRGB(255, 0, 0),
 	
-	-- NPC CHAMS (NEW)
-	NPCChamsEnabled = false,
-	NPCChamsTagFilter = true,
-	NPCChamsAggressive = false,
-	NPCChamsUseVisibilityColors = false,
-	NPCChamsUseRaycasting = false,
-	NPCChamsDepthMode = "AlwaysOnTop",
-	NPCChamsFillTransparency = 0.5,
-	NPCChamsOutlineTransparency = 0,
+	-- NPC Chams
+	NPCEnabled = false,
+	NPCMaxDistance = 10000,
+	NPCFillColor = Color3.fromRGB(255, 165, 0),
+	NPCOutlineColor = Color3.fromRGB(255, 165, 0),
+	StandardNPCColor = Color3.fromRGB(255, 0, 0),
+	BossNPCColor = Color3.fromRGB(255, 165, 0),
+	UseNPCColors = false,
+	EnableTagFilter = true,
+	AggressiveNPCDetection = false,
 	
-	NPCChamsStandardFillColor = Color3.fromRGB(255, 0, 0),
-	NPCChamsStandardOutlineColor = Color3.fromRGB(255, 0, 0),
-	NPCChamsBossFillColor = Color3.fromRGB(255, 165, 0),
-	NPCChamsBossOutlineColor = Color3.fromRGB(255, 165, 0),
-	NPCChamsVisibleFillColor = Color3.fromRGB(0, 255, 0),
-	NPCChamsVisibleOutlineColor = Color3.fromRGB(0, 255, 0),
-	NPCChamsHiddenFillColor = Color3.fromRGB(255, 0, 0),
-	NPCChamsHiddenOutlineColor = Color3.fromRGB(255, 0, 0),
+	depthMode = "AlwaysOnTop",
+	useRaycasting = false,
+	useVisibilityColors = false,
 }
 
---═══════════════════════════════════════════════════════════════════════════════
---  CHAMS STORAGE
---═══════════════════════════════════════════════════════════════════════════════
-
-local ChamsStorage = {
-	PlayerChams = {},        -- {Player -> chams data}
-	NPCChams = {},           -- {NPC -> chams data}
-	TrackedNPCs = {},        -- {NPC -> true}
-	ScanConnection = nil,
-	UpdateConnection = nil,
-	MainScreenGui = nil
+-- Runtime Data
+local RuntimeData = {
+	highlightData = {} :: PlayerCache,
+	npcHighlightData = {} :: NPCCache,
+	connections = {} :: {[string]: RBXScriptConnection},
+	playerConnections = {} :: {[Player]: {[string]: RBXScriptConnection}},
+	npcConnections = {} :: {[Model]: {[string]: RBXScriptConnection}},
+	lastUpdate = 0,
+	playerQueue = {} :: {Player},
+	npcQueue = {} :: {Model},
+	currentQueueIndex = 1,
+	npcQueueIndex = 1,
+	cachedDepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+	trackedNPCs = {} :: {[Model]: boolean},
 }
 
---═══════════════════════════════════════════════════════════════════════════════
---  INITIALIZE SCREEN GUI
---═══════════════════════════════════════════════════════════════════════════════
+--=============================================================================
+-- UTILITY FUNCTIONS
+--=============================================================================
 
-local function initializeScreenGui()
-	if ChamsStorage.MainScreenGui then return ChamsStorage.MainScreenGui end
-	
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "ChamsRenderer"
-	screenGui.ResetOnSpawn = false
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	screenGui.IgnoreGuiInset = true
-	screenGui.DisplayOrder = 999
-	screenGui.Parent = Cache.PlayerGui
-	
-	ChamsStorage.MainScreenGui = screenGui
-	return screenGui
+local function SafeCall(func, ...)
+	return pcall(func, ...)
 end
 
---═══════════════════════════════════════════════════════════════════════════════
---  UTILITY FUNCTIONS
---═══════════════════════════════════════════════════════════════════════════════
-
-local Utils = {}
-
-function Utils.raycastCheck(character)
-	if not character or not character:FindFirstChild("Head") then return false end
-	
-	local camera = Cache.Camera
-	local head = character:FindFirstChild("Head")
-	
-	local rayOrigin = camera.CFrame.Position
-	local rayDirection = (head.Position - rayOrigin).Unit * 2000
-	
-	local raycastParams = RaycastParams.new()
-	raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-	raycastParams.FilterDescendantsInstances = {Cache.LocalPlayer.Character, character}
-	
-	local result = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-	return result == nil
+local function GetDepthMode()
+	return ChamsConfig.depthMode == "Occluded" 
+		and Enum.HighlightDepthMode.Occluded 
+		or Enum.HighlightDepthMode.AlwaysOnTop
 end
 
-function Utils.isNPCBoss(npc)
-	if not npc then return false end
+local function gameHasTeams()
+	local teams = game:GetService("Teams")
+	if not teams then return false end
+	return #teams:GetTeams() > 0
+end
+
+local function getPlayerTeamColor(targetPlayer)
+	if not targetPlayer then return nil end
+	if not targetPlayer.Team then return nil end
+	return targetPlayer.Team.TeamColor.Color
+end
+
+local function isEnemy(targetPlayer)
+	if not targetPlayer then return true end
+	if not targetPlayer.Character then return true end
 	
-	local bossKeywords = {"boss", "Boss", "BOSS", "miniboss", "MiniBoss", "MINIBOSS"}
-	for _, keyword in pairs(bossKeywords) do
-		if string.find(npc.Name, keyword) then
-			return true
-		end
+	if not gameHasTeams() then return true end
+	
+	if not LocalPlayer.Team then
+		if not targetPlayer.Team then return false end
+		return true
 	end
 	
-	return false
+	if not targetPlayer.Team then return true end
+	
+	return LocalPlayer.Team ~= targetPlayer.Team
 end
 
-function Utils.isValidNPC(character)
+local function shouldShowPlayer(targetPlayer)
+	if not ChamsConfig.EnableTeamCheck then return true end
+	local isEnemyPlayer = isEnemy(targetPlayer)
+	if ChamsConfig.ShowEnemyOnly and not isEnemyPlayer then return false end
+	if ChamsConfig.ShowAlliedOnly and isEnemyPlayer then return false end
+	return true
+end
+
+--=============================================================================
+-- NPC DETECTION SYSTEM (từ ESP)
+--=============================================================================
+
+local NPCSystem = {}
+
+function NPCSystem.isPlayer(character)
 	if not character or not character:IsA("Model") then return false end
-	
-	-- Bỏ qua player
-	if Services.Players:GetPlayerFromCharacter(character) then return false end
-	if character == Cache.LocalPlayer.Character then return false end
+	if character == LocalPlayer.Character then return true end
+	local player = Players:GetPlayerFromCharacter(character)
+	return player ~= nil
+end
+
+function NPCSystem.isNPC(character)
+	if not character or not character:IsA("Model") then return false end
+	if NPCSystem.isPlayer(character) then return false end
 	
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local head = character:FindFirstChild("Head")
@@ -177,10 +180,12 @@ function Utils.isValidNPC(character)
 	
 	if not humanoid or not head or not hrp or humanoid.Health <= 0 then return false end
 	
-	if CHAMS_CONFIG.NPCChamsAggressive then return true end
+	if ChamsConfig.AggressiveNPCDetection then 
+		return true
+	end
 	
-	if CHAMS_CONFIG.NPCChamsTagFilter then
-		for _, tag in pairs(NPCTags) do
+	if ChamsConfig.EnableTagFilter then
+		for _, tag in ipairs(NPCTags) do
 			if string.find(character.Name, tag) then
 				return true
 			end
@@ -191,369 +196,636 @@ function Utils.isValidNPC(character)
 	return true
 end
 
-function Utils.getTeam(player)
-	if not player then return nil end
+function NPCSystem.isBoss(npc)
+	if not npc then return false end
 	
-	if player.Team then
-		return {
-			Name = player.Team.Name,
-			Color = player.Team.TeamColor.Color,
-		}
+	local isBossTag = function(str)
+		local str_lower = string.lower(str)
+		return string.find(str_lower, "boss") or string.find(str_lower, "miniboss") or string.find(str_lower, "guardian")
 	end
 	
-	if player.TeamColor and player.TeamColor ~= BrickColor.new("White") then
-		return {
-			Name = player.TeamColor.Name,
-			Color = player.TeamColor.Color,
-		}
+	if isBossTag(npc.Name) then return true end
+	
+	local humanoid = npc:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.MaxHealth > 100 then return true end
+	
+	return false
+end
+
+function NPCSystem.findNPCsRecursive(parent)
+	local foundNPCs = {}
+	
+	local function scan(obj)
+		if obj:IsA("Model") and NPCSystem.isNPC(obj) then
+			table.insert(foundNPCs, obj)
+		end
+		
+		local success, children = pcall(function() return obj:GetChildren() end)
+		if success then
+			for _, child in pairs(children) do
+				scan(child)
+			end
+		end
 	end
 	
-	return nil
+	scan(parent)
+	return foundNPCs
 end
 
-function Utils.isSameTeam(player1, player2)
-	if not player1 or not player2 then return false end
-	if player1 == player2 then return true end
+--=============================================================================
+-- CHAMS COLORS
+--=============================================================================
+
+local function GetChamsColors(target, isVisible: boolean)
+	local isNPC = RuntimeData.npcHighlightData[target] and RuntimeData.npcHighlightData[target].isNPC
 	
-	local team1 = Utils.getTeam(player1)
-	local team2 = Utils.getTeam(player2)
-	
-	if not team1 and not team2 then return true end
-	if not team1 or not team2 then return false end
-	
-	return team1.Name == team2.Name
+	if isNPC then
+		-- NPC Colors
+		if ChamsConfig.useVisibilityColors then
+			if isVisible then
+				return ChamsConfig.visibleFillColor, ChamsConfig.visibleOutlineColor
+			else
+				return ChamsConfig.hiddenFillColor, ChamsConfig.hiddenOutlineColor
+			end
+		end
+		
+		if ChamsConfig.UseNPCColors then
+			if NPCSystem.isBoss(target) then
+				return ChamsConfig.BossNPCColor, ChamsConfig.BossNPCColor
+			else
+				return ChamsConfig.StandardNPCColor, ChamsConfig.StandardNPCColor
+			end
+		end
+		
+		return ChamsConfig.NPCFillColor, ChamsConfig.NPCOutlineColor
+	else
+		-- Player Colors
+		if ChamsConfig.useVisibilityColors then
+			if isVisible then
+				return ChamsConfig.visibleFillColor, ChamsConfig.visibleOutlineColor
+			else
+				return ChamsConfig.hiddenFillColor, ChamsConfig.hiddenOutlineColor
+			end
+		end
+		
+		if not ChamsConfig.UseTeamColors then
+			return ChamsConfig.fillColor, ChamsConfig.outlineColor
+		end
+		
+		if ChamsConfig.UseActualTeamColors then
+			local teamColor = getPlayerTeamColor(target)
+			if teamColor then
+				return teamColor, teamColor
+			else
+				return ChamsConfig.NoTeamColor, ChamsConfig.NoTeamColor
+			end
+		else
+			local isEnemyPlayer = isEnemy(target)
+			if isEnemyPlayer then
+				return ChamsConfig.EnemyFillColor, ChamsConfig.EnemyOutlineColor
+			else
+				return ChamsConfig.AlliedFillColor, ChamsConfig.AlliedOutlineColor
+			end
+		end
+	end
 end
 
---═══════════════════════════════════════════════════════════════════════════════
---  CHAMS CREATION & MANAGEMENT
---═══════════════════════════════════════════════════════════════════════════════
+--=============================================================================
+-- LINE OF SIGHT CHECK
+--=============================================================================
 
-local ChamsManager = {}
-
-function ChamsManager.createChams(character, isNPC)
-	if not character or not character:FindFirstChild("Head") then return nil end
+local function CheckLineOfSight(fromPos: Vector3, toPos: Vector3, ignoreChars): boolean
+	if not ChamsConfig.useRaycasting then return true end
 	
-	local screenGui = initializeScreenGui()
+	local direction = toPos - fromPos
+	if direction.Magnitude == 0 then return true end
 	
-	-- Container frame
-	local chamsFrame = Instance.new("Frame")
-	chamsFrame.Name = "ChamsFrame_" .. character.Name
-	chamsFrame.Size = UDim2.new(0, 50, 0, 100)
-	chamsFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-	chamsFrame.BorderSizePixel = 0
-	chamsFrame.Parent = screenGui
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = ignoreChars
+	rayParams.IgnoreWater = true
 	
-	-- Fill
-	local fill = Instance.new("Frame")
-	fill.Name = "ChamsFill"
-	fill.Size = UDim2.new(1, 0, 1, 0)
-	fill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-	fill.BorderSizePixel = 0
-	fill.Parent = chamsFrame
+	local success, result = SafeCall(function()
+		return workspace:Raycast(fromPos, direction, rayParams)
+	end)
 	
-	-- Stroke (outline)
-	local stroke = Instance.new("UIStroke")
-	stroke.Name = "ChamsStroke"
-	stroke.Thickness = 2
-	stroke.Color = Color3.fromRGB(255, 0, 0)
-	stroke.Parent = chamsFrame
-	
-	-- Gradient (optional)
-	local gradient = Instance.new("UIGradient")
-	gradient.Name = "ChamsGradient"
-	gradient.Transparency = NumberSequence.new(CHAMS_CONFIG.fillTransparency)
-	gradient.Rotation = 0
-	gradient.Parent = fill
-	
-	local chamsData = {
-		Frame = chamsFrame,
-		Fill = fill,
-		Stroke = stroke,
-		Gradient = gradient,
-		Character = character,
-		IsNPC = isNPC or false,
-	}
-	
-	return chamsData
+	if success and result then
+		if result.Instance then
+			local hitDistance = (result.Position - toPos).Magnitude
+			if hitDistance < 5 then return true end
+			
+			local model = result.Instance:FindFirstAncestorOfClass("Model")
+			if model and model:FindFirstChild("Humanoid") then return true end
+			return false
+		end
+	end
+	return true
 end
 
-function ChamsManager.updateChams(chamsData)
-	if not chamsData or not chamsData.Character or not chamsData.Character.Parent then return end
+--=============================================================================
+-- STATUS CHECKERS
+--=============================================================================
+
+local function GetPlayerStatus(player: Player): (boolean, boolean, number)
+	if not ChamsConfig.enabled or player == LocalPlayer then 
+		return false, false, 0
+	end
 	
-	local character = chamsData.Character
-	local head = character:FindFirstChild("Head")
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local success, result = SafeCall(function()
+		local character = player.Character
+		if not character then return {false, false, 0} end
+		
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character:FindFirstChild("Humanoid")
+		
+		if not hrp or not humanoid or humanoid.Health <= 0 then 
+			return {false, false, 0}
+		end
+		
+		local myChar = LocalPlayer.Character
+		if not myChar then return {false, false, 0} end
+		
+		local myHrp = myChar:FindFirstChild("HumanoidRootPart")
+		if not myHrp then return {false, false, 0} end
+		
+		local distance = (hrp.Position - myHrp.Position).Magnitude
+		if distance > ChamsConfig.maxDistance then 
+			return {false, false, distance}
+		end
+		
+		if not shouldShowPlayer(player) then
+			return {false, false, distance}
+		end
+		
+		local isVisible = CheckLineOfSight(myHrp.Position, hrp.Position, {myChar, character})
+		
+		return {true, isVisible, distance}
+	end)
 	
-	if not head or not humanoid or humanoid.Health <= 0 then
-		ChamsManager.removeChams(chamsData)
+	if success and result then
+		return result[1], result[2], result[3]
+	end
+	return false, false, 0
+end
+
+local function GetNPCStatus(npc: Model): (boolean, boolean, number)
+	if not ChamsConfig.NPCEnabled or not npc then 
+		return false, false, 0
+	end
+	
+	local success, result = SafeCall(function()
+		local humanoid = npc:FindFirstChildOfClass("Humanoid")
+		local hrp = npc:FindFirstChild("HumanoidRootPart")
+		
+		if not humanoid or not hrp or humanoid.Health <= 0 then 
+			return {false, false, 0}
+		end
+		
+		local myChar = LocalPlayer.Character
+		if not myChar then return {false, false, 0} end
+		
+		local myHrp = myChar:FindFirstChild("HumanoidRootPart")
+		if not myHrp then return {false, false, 0} end
+		
+		local distance = (hrp.Position - myHrp.Position).Magnitude
+		if distance > ChamsConfig.NPCMaxDistance then 
+			return {false, false, distance}
+		end
+		
+		local isVisible = CheckLineOfSight(myHrp.Position, hrp.Position, {myChar, npc})
+		
+		return {true, isVisible, distance}
+	end)
+	
+	if success and result then
+		return result[1], result[2], result[3]
+	end
+	return false, false, 0
+end
+
+--=============================================================================
+-- HIGHLIGHT MANAGEMENT
+--=============================================================================
+
+local function IsHighlightValid(highlightData: HighlightData?): boolean
+	if not highlightData or not highlightData.highlight then return false end
+	
+	local success, isValid = SafeCall(function()
+		return highlightData.highlight.Parent ~= nil
+	end)
+	
+	return success and isValid or false
+end
+
+local function CreateHighlight(target, character: Model, isNPC: boolean): boolean
+	local success = SafeCall(function()
+		local cacheData = isNPC and RuntimeData.npcHighlightData or RuntimeData.highlightData
+		
+		if cacheData[target] then
+			local oldData = cacheData[target]
+			if oldData.highlight then
+				oldData.highlight:Destroy()
+			end
+		end
+		
+		local highlight = Instance.new("Highlight")
+		highlight.Name = (isNPC and "Chams_NPC_" or "Chams_Player_") .. (isNPC and target.Name or target.UserId)
+		highlight.Adornee = character
+		highlight.DepthMode = GetDepthMode()
+		highlight.Enabled = true
+		highlight.Parent = character
+		
+		cacheData[target] = {
+			highlight = highlight,
+			lastUpdateTick = tick(),
+			isNPC = isNPC
+		}
+		
+		return true
+	end)
+	
+	return success
+end
+
+local function RemoveHighlight(target, isNPC: boolean)
+	local cacheData = isNPC and RuntimeData.npcHighlightData or RuntimeData.highlightData
+	
+	SafeCall(function()
+		local data = cacheData[target]
+		if data and data.highlight then
+			data.highlight:Destroy()
+		end
+		cacheData[target] = nil
+	end)
+	
+	if isNPC then
+		local npcConns = RuntimeData.npcConnections[target]
+		if npcConns then
+			for _, conn in pairs(npcConns) do
+				SafeCall(function() conn:Disconnect() end)
+			end
+			RuntimeData.npcConnections[target] = nil
+		end
+		RuntimeData.trackedNPCs[target] = nil
+	else
+		local playerConns = RuntimeData.playerConnections[target]
+		if playerConns then
+			for _, conn in pairs(playerConns) do
+				SafeCall(function() conn:Disconnect() end)
+			end
+			RuntimeData.playerConnections[target] = nil
+		end
+	end
+end
+
+local function UpdateHighlightProperties(highlight: Highlight, fillColor: Color3, outlineColor: Color3)
+	highlight.FillColor = fillColor
+	highlight.OutlineColor = outlineColor
+	highlight.FillTransparency = ChamsConfig.fillTransparency
+	highlight.OutlineTransparency = ChamsConfig.outlineTransparency
+	highlight.DepthMode = GetDepthMode()
+end
+
+local function UpdateHighlight(target, isNPC: boolean)
+	local shouldShow, isVisible, distance
+	
+	if isNPC then
+		shouldShow, isVisible, distance = GetNPCStatus(target)
+	else
+		shouldShow, isVisible, distance = GetPlayerStatus(target)
+	end
+	
+	if not shouldShow then
+		RemoveHighlight(target, isNPC)
 		return
 	end
 	
-	local config = CHAMS_CONFIG
-	
-	-- Determine visibility
-	local isVisible = true
-	if config.useRaycasting or (chamsData.IsNPC and config.NPCChamsUseRaycasting) then
-		isVisible = Utils.raycastCheck(character)
+	local character = isNPC and target or target.Character
+	if not character then
+		RemoveHighlight(target, isNPC)
+		return
 	end
 	
-	-- Determine colors
-	local fillColor, strokeColor
+	local cacheData = isNPC and RuntimeData.npcHighlightData or RuntimeData.highlightData
+	local data = cacheData[target]
 	
-	if chamsData.IsNPC then
-		if config.NPCChamsUseVisibilityColors then
-			fillColor = isVisible and config.NPCChamsVisibleFillColor or config.NPCChamsHiddenFillColor
-			strokeColor = isVisible and config.NPCChamsVisibleOutlineColor or config.NPCChamsHiddenOutlineColor
-		else
-			local isBoss = Utils.isNPCBoss(character)
-			fillColor = isBoss and config.NPCChamsBossFillColor or config.NPCChamsStandardFillColor
-			strokeColor = isBoss and config.NPCChamsBossOutlineColor or config.NPCChamsStandardOutlineColor
+	if not IsHighlightValid(data) then
+		if not CreateHighlight(target, character, isNPC) then
+			return
 		end
-	else
-		-- Player chams
-		if config.useVisibilityColors then
-			fillColor = isVisible and config.visibleFillColor or config.hiddenFillColor
-			strokeColor = isVisible and config.visibleOutlineColor or config.hiddenOutlineColor
-		elseif config.UseTeamColors then
-			local isAlly = Utils.isSameTeam(Cache.LocalPlayer, character)
-			fillColor = isAlly and config.AlliedFillColor or config.EnemyFillColor
-			strokeColor = isAlly and config.AlliedOutlineColor or config.EnemyOutlineColor
-		else
-			fillColor = config.fillColor
-			strokeColor = config.outlineColor
+		data = cacheData[target]
+	end
+	
+	if not data then return end
+	
+	local fillColor, outlineColor = GetChamsColors(target, isVisible)
+	
+	SafeCall(function()
+		if data.highlight then
+			local adornee = data.highlight.Adornee
+			if adornee ~= character then
+				data.highlight.Adornee = character
+			end
+			UpdateHighlightProperties(data.highlight, fillColor, outlineColor)
 		end
-	end
-	
-	-- Update colors
-	chamsData.Fill.BackgroundColor3 = fillColor
-	chamsData.Stroke.Color = strokeColor
-	
-	-- Update transparency
-	local transparency = chamsData.IsNPC and config.NPCChamsFillTransparency or config.fillTransparency
-	chamsData.Gradient.Transparency = NumberSequence.new(transparency)
-	
-	local outlineTransparency = chamsData.IsNPC and config.NPCChamsOutlineTransparency or config.outlineTransparency
-	chamsData.Stroke.Transparency = outlineTransparency
-	
-	-- World to screen
-	local headScreenPos, onScreen = Cache.Camera:WorldToScreenPoint(head.Position)
-	
-	if onScreen then
-		chamsData.Frame.Visible = true
-		
-		-- Size estimation
-		local topScreenPos = Cache.Camera:WorldToScreenPoint(head.Position + Vector3.new(0, head.Size.Y/2, 0))
-		local bottomScreenPos = Cache.Camera:WorldToScreenPoint(head.Position - Vector3.new(0, head.Size.Y/2, 0))
-		
-		local height = math.abs(bottomScreenPos.Y - topScreenPos.Y)
-		local width = height * 0.5
-		
-		chamsData.Frame.Size = UDim2.new(0, width, 0, height * 2)
-		chamsData.Frame.Position = UDim2.new(0, headScreenPos.X - width/2, 0, topScreenPos.Y - height)
-	else
-		chamsData.Frame.Visible = false
-	end
-end
-
-function ChamsManager.removeChams(chamsData)
-	if chamsData and chamsData.Frame then
-		chamsData.Frame:Destroy()
-	end
-end
-
---═══════════════════════════════════════════════════════════════════════════════
---  PLAYER CHAMS HANDLER
---═══════════════════════════════════════════════════════════════════════════════
-
-local PlayerChamsHandler = {}
-
-function PlayerChamsHandler.addPlayer(player)
-	if player == Cache.LocalPlayer then return end
-	
-	task.wait(0.3)
-	
-	if not player.Character then return end
-	
-	local chamsData = ChamsManager.createChams(player.Character, false)
-	if chamsData then
-		ChamsStorage.PlayerChams[player] = chamsData
-	end
-end
-
-function PlayerChamsHandler.removePlayer(player)
-	local chamsData = ChamsStorage.PlayerChams[player]
-	if chamsData then
-		ChamsManager.removeChams(chamsData)
-		ChamsStorage.PlayerChams[player] = nil
-	end
-end
-
-function PlayerChamsHandler.initialize()
-	for _, player in pairs(Services.Players:GetPlayers()) do
-		if player ~= Cache.LocalPlayer then
-			PlayerChamsHandler.addPlayer(player)
-		end
-	end
-	
-	Services.Players.PlayerAdded:Connect(function(player)
-		if CHAMS_CONFIG.enabled then
-			PlayerChamsHandler.addPlayer(player)
-		end
-	end)
-	
-	Services.Players.PlayerRemoving:Connect(function(player)
-		PlayerChamsHandler.removePlayer(player)
 	end)
 end
 
-function PlayerChamsHandler.cleanup()
-	for player in pairs(ChamsStorage.PlayerChams) do
-		PlayerChamsHandler.removePlayer(player)
+--=============================================================================
+-- QUEUE & BATCH UPDATE SYSTEM
+--=============================================================================
+
+local function RebuildPlayerQueue()
+	RuntimeData.playerQueue = {}
+	for _, player in Players:GetPlayers() do
+		if player ~= LocalPlayer then
+			table.insert(RuntimeData.playerQueue, player)
+		end
 	end
+	RuntimeData.currentQueueIndex = 1
 end
 
---═══════════════════════════════════════════════════════════════════════════════
---  NPC CHAMS HANDLER
---═══════════════════════════════════════════════════════════════════════════════
+local function RebuildNPCQueue()
+	RuntimeData.npcQueue = {}
+	local npcs = NPCSystem.findNPCsRecursive(workspace)
+	for _, npc in pairs(npcs) do
+		table.insert(RuntimeData.npcQueue, npc)
+	end
+	RuntimeData.npcQueueIndex = 1
+end
 
-local NPCChamsHandler = {}
-
-function NPCChamsHandler.scanNPCs()
-	local function scanRecursive(parent)
-		local npcs = {}
-		for _, child in pairs(parent:GetChildren()) do
-			if Utils.isValidNPC(child) then
-				table.insert(npcs, child)
+local function UpdateBatchChams()
+	if not ChamsConfig.enabled and not ChamsConfig.NPCEnabled then return end
+	
+	local currentTime = tick()
+	local deltaTime = currentTime - RuntimeData.lastUpdate
+	
+	if deltaTime < ChamsConfig.updateInterval then return end
+	RuntimeData.lastUpdate = currentTime
+	
+	-- Update Players
+	if ChamsConfig.enabled then
+		local queueLength = #RuntimeData.playerQueue
+		if queueLength == 0 then
+			RebuildPlayerQueue()
+			queueLength = #RuntimeData.playerQueue
+		end
+		
+		local batchCount = math.min(ChamsConfig.batchSize, queueLength)
+		
+		for i = 1, batchCount do
+			local index = RuntimeData.currentQueueIndex
+			local player = RuntimeData.playerQueue[index]
+			
+			if player and player.Parent then
+				UpdateHighlight(player, false)
+			else
+				table.remove(RuntimeData.playerQueue, index)
+				queueLength = #RuntimeData.playerQueue
+				if queueLength == 0 then break end
+				if RuntimeData.currentQueueIndex > queueLength then
+					RuntimeData.currentQueueIndex = 1
+				end
 			end
-			for _, foundNPC in pairs(scanRecursive(child)) do
-				table.insert(npcs, foundNPC)
+			
+			RuntimeData.currentQueueIndex = RuntimeData.currentQueueIndex + 1
+			if RuntimeData.currentQueueIndex > #RuntimeData.playerQueue then
+				RuntimeData.currentQueueIndex = 1
 			end
 		end
-		return npcs
 	end
 	
-	return scanRecursive(workspace)
+	-- Update NPCs
+	if ChamsConfig.NPCEnabled then
+		local queueLength = #RuntimeData.npcQueue
+		if queueLength == 0 then
+			RebuildNPCQueue()
+			queueLength = #RuntimeData.npcQueue
+		end
+		
+		local batchCount = math.min(ChamsConfig.batchSize, queueLength)
+		
+		for i = 1, batchCount do
+			local index = RuntimeData.npcQueueIndex
+			local npc = RuntimeData.npcQueue[index]
+			
+			if npc and npc.Parent then
+				UpdateHighlight(npc, true)
+			else
+				table.remove(RuntimeData.npcQueue, index)
+				queueLength = #RuntimeData.npcQueue
+				if queueLength == 0 then break end
+				if RuntimeData.npcQueueIndex > queueLength then
+					RuntimeData.npcQueueIndex = 1
+				end
+			end
+			
+			RuntimeData.npcQueueIndex = RuntimeData.npcQueueIndex + 1
+			if RuntimeData.npcQueueIndex > #RuntimeData.npcQueue then
+				RuntimeData.npcQueueIndex = 1
+			end
+		end
+	end
 end
 
-function NPCChamsHandler.update()
-	local foundNPCs = NPCChamsHandler.scanNPCs()
+--=============================================================================
+-- PLAYER CONNECTION SETUP
+--=============================================================================
+
+local function SetupPlayerConnections(player: Player)
+	if player == LocalPlayer then return end
+	
+	RuntimeData.playerConnections[player] = {}
+	
+	RuntimeData.playerConnections[player]["charAdded"] = player.CharacterAdded:Connect(function(character)
+		task.wait(0.1)
+		if player.Parent and ChamsConfig.enabled then
+			SafeCall(function()
+				UpdateHighlight(player, false)
+			end)
+		end
+	end)
+	
+	RuntimeData.playerConnections[player]["charRemoving"] = player.CharacterRemoving:Connect(function()
+		RemoveHighlight(player, false)
+	end)
+	
+	if not table.find(RuntimeData.playerQueue, player) then
+		table.insert(RuntimeData.playerQueue, player)
+	end
+end
+
+--=============================================================================
+-- NPC SCANNING & TRACKING
+--=============================================================================
+
+local function ScanForNPCs()
+	if not ChamsConfig.NPCEnabled then return end
+	
+	local foundNPCs = NPCSystem.findNPCsRecursive(workspace)
+	
 	local foundSet = {}
-	
 	for _, npc in pairs(foundNPCs) do
 		foundSet[npc] = true
 	end
 	
-	-- Remove dead NPCs
-	for npc in pairs(ChamsStorage.NPCChams) do
+	-- Xóa NPC không còn tồn tại
+	for npc in pairs(RuntimeData.trackedNPCs) do
 		if not foundSet[npc] or not npc.Parent then
-			ChamsManager.removeChams(ChamsStorage.NPCChams[npc])
-			ChamsStorage.NPCChams[npc] = nil
+			RemoveHighlight(npc, true)
 		end
 	end
 	
-	-- Add new NPCs
+	-- Thêm NPC mới
 	for _, npc in pairs(foundNPCs) do
-		if not ChamsStorage.NPCChams[npc] then
-			local chamsData = ChamsManager.createChams(npc, true)
-			if chamsData then
-				ChamsStorage.NPCChams[npc] = chamsData
+		if not RuntimeData.trackedNPCs[npc] then
+			RuntimeData.trackedNPCs[npc] = true
+			if not table.find(RuntimeData.npcQueue, npc) then
+				table.insert(RuntimeData.npcQueue, npc)
 			end
 		end
 	end
 end
 
-function NPCChamsHandler.cleanup()
-	for npc in pairs(ChamsStorage.NPCChams) do
-		ChamsManager.removeChams(ChamsStorage.NPCChams[npc])
+--=============================================================================
+-- EVENT INITIALIZATION
+--=============================================================================
+
+local function InitializeEvents()
+	RuntimeData.connections.heartbeat = RunService.Heartbeat:Connect(UpdateBatchChams)
+	
+	-- Player events
+	RuntimeData.connections.playerRemoving = Players.PlayerRemoving:Connect(function(player)
+		RemoveHighlight(player, false)
+		
+		local index = table.find(RuntimeData.playerQueue, player)
+		if index then
+			table.remove(RuntimeData.playerQueue, index)
+			if RuntimeData.currentQueueIndex > #RuntimeData.playerQueue and #RuntimeData.playerQueue > 0 then
+				RuntimeData.currentQueueIndex = 1
+			end
+		end
+	end)
+	
+	RuntimeData.connections.playerAdded = Players.PlayerAdded:Connect(SetupPlayerConnections)
+	
+	RuntimeData.connections.localCharAdded = LocalPlayer.CharacterAdded:Connect(function()
+		task.wait(0.5)
+		for player in pairs(RuntimeData.highlightData) do
+			RemoveHighlight(player, false)
+		end
+		task.wait(0.2)
+		RebuildPlayerQueue()
+	end)
+	
+	-- NPC scanning
+	RuntimeData.connections.npcScan = RunService.Heartbeat:Connect(ScanForNPCs)
+	
+	for _, player in Players:GetPlayers() do
+		SetupPlayerConnections(player)
 	end
-	ChamsStorage.NPCChams = {}
+	
+	RebuildPlayerQueue()
 end
 
---═══════════════════════════════════════════════════════════════════════════════
---  MAIN CHAMS API
---═══════════════════════════════════════════════════════════════════════════════
+--=============================================================================
+-- PUBLIC API
+--=============================================================================
 
 local ChamsAPI = {}
 
-function ChamsAPI:UpdateConfig(newConfig)
+function ChamsAPI:Toggle(state: boolean)
+	ChamsConfig.enabled = state
+	if not state then
+		for player in pairs(RuntimeData.highlightData) do
+			RemoveHighlight(player, false)
+		end
+	else
+		RebuildPlayerQueue()
+	end
+end
+
+function ChamsAPI:ToggleNPC(state: boolean)
+	ChamsConfig.NPCEnabled = state
+	if not state then
+		for npc in pairs(RuntimeData.npcHighlightData) do
+			RemoveHighlight(npc, true)
+		end
+		RuntimeData.trackedNPCs = {}
+	else
+		RebuildNPCQueue()
+	end
+end
+
+function ChamsAPI:UpdateConfig(newConfig: {[string]: any})
 	for key, value in pairs(newConfig) do
-		if CHAMS_CONFIG[key] ~= nil then
-			CHAMS_CONFIG[key] = value
+		if ChamsConfig[key] ~= nil then
+			ChamsConfig[key] = value
 		end
 	end
 end
 
 function ChamsAPI:GetConfig()
-	return CHAMS_CONFIG
+	return ChamsConfig
 end
 
-function ChamsAPI:Toggle(state)
-	CHAMS_CONFIG.enabled = state
-	
-	if state then
-		PlayerChamsHandler.initialize()
-	else
-		PlayerChamsHandler.cleanup()
+function ChamsAPI:GetTrackedNPCs()
+	local npcList = {}
+	for npc in pairs(RuntimeData.trackedNPCs) do
+		if npc.Parent then
+			table.insert(npcList, npc)
+		end
 	end
+	return npcList
 end
 
-function ChamsAPI:ToggleNPC(state)
-	CHAMS_CONFIG.NPCChamsEnabled = state
-	
-	if state then
-		NPCChamsHandler.update()
-	else
-		NPCChamsHandler.cleanup()
+function ChamsAPI:GetTrackedPlayers()
+	local playerList = {}
+	for player in pairs(RuntimeData.highlightData) do
+		if player.Parent then
+			table.insert(playerList, player)
+		end
 	end
+	return playerList
 end
 
 function ChamsAPI:Destroy()
-	PlayerChamsHandler.cleanup()
-	NPCChamsHandler.cleanup()
-	
-	if ChamsStorage.UpdateConnection then
-		ChamsStorage.UpdateConnection:Disconnect()
+	for name, conn in pairs(RuntimeData.connections) do
+		SafeCall(function() conn:Disconnect() end)
 	end
+	RuntimeData.connections = {}
 	
-	if ChamsStorage.ScanConnection then
-		ChamsStorage.ScanConnection:Disconnect()
+	for player, conns in pairs(RuntimeData.playerConnections) do
+		for _, conn in pairs(conns) do
+			SafeCall(function() conn:Disconnect() end)
+		end
 	end
+	RuntimeData.playerConnections = {}
 	
-	if ChamsStorage.MainScreenGui then
-		ChamsStorage.MainScreenGui:Destroy()
+	for npc, conns in pairs(RuntimeData.npcConnections) do
+		for _, conn in pairs(conns) do
+			SafeCall(function() conn:Disconnect() end)
+		end
 	end
+	RuntimeData.npcConnections = {}
+	
+	for player in pairs(RuntimeData.highlightData) do
+		RemoveHighlight(player, false)
+	end
+	RuntimeData.highlightData = {}
+	
+	for npc in pairs(RuntimeData.npcHighlightData) do
+		RemoveHighlight(npc, true)
+	end
+	RuntimeData.npcHighlightData = {}
+	
+	RuntimeData.trackedNPCs = {}
 end
 
---═══════════════════════════════════════════════════════════════════════════════
---  INITIALIZATION
---═══════════════════════════════════════════════════════════════════════════════
+--=============================================================================
+-- INITIALIZATION
+--=============================================================================
 
-local function initialize()
-	initializeScreenGui()
-	
-	-- Main update loop
-	ChamsStorage.UpdateConnection = Services.RunService.RenderStepped:Connect(function()
-		if CHAMS_CONFIG.enabled then
-			for player, chamsData in pairs(ChamsStorage.PlayerChams) do
-				ChamsManager.updateChams(chamsData)
-			end
-		end
-		
-		if CHAMS_CONFIG.NPCChamsEnabled then
-			for npc, chamsData in pairs(ChamsStorage.NPCChams) do
-				ChamsManager.updateChams(chamsData)
-			end
-		end
-	end)
-	
-	-- NPC scan loop
-	ChamsStorage.ScanConnection = Services.RunService.Heartbeat:Connect(function()
-		if CHAMS_CONFIG.NPCChamsEnabled then
-			NPCChamsHandler.update()
-		end
-	end)
-end
-
-initialize()
+InitializeEvents()
 
 return ChamsAPI
