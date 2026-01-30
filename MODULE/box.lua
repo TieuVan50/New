@@ -61,7 +61,7 @@ local NPCTags = {
 	"Animal", "animal", "Beast", "beast", "Villain", "villain",
 	"Boss", "boss", "MiniBoss", "miniboss", "Guard", "guard",
 	"Guardian", "guardian", "Soldier", "soldier", "Warrior", "warrior",
-	"Fighter", "fighter", "Target", "target", "Dummy", "dummy",
+	"Fighter", "fighter", "Target", "target", "Dummy", "dummy", "PoliceN", "Cashier", "Civilian",
 }
 
 local function initializeScreenGui()
