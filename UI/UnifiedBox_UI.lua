@@ -24,18 +24,22 @@ return function(EspPage, UnifiedESP)
 	-- DROPDOWN CHỌN MODE (PLAYER HOẶC NPC)
 	--=============================================================================
 
-	EspSection:Dropdown({
-		Name = "Chế độ ESP",
-		Flag = "ESPMode",
-		Default = "Player",
-		Items = {"Player", "NPC"},
-		Multi = false,
-		Callback = function(Value)
-			local selectedMode = type(Value) == "table" and Value[1] or Value
-			UnifiedESP:SetMode(selectedMode)
-			print("✓ Đổi sang chế độ: " .. selectedMode)
-		end
-	})
+
+EspSection:Dropdown({
+	Name = "Chế độ ESP",
+	Flag = "ESPMode",
+	Default = "Player",
+	Items = {"Player", "NPC", "Both"},
+	Multi = false,
+	Callback = function(Value)
+		local selectedMode = type(Value) == "table" and Value[1] or Value
+
+		UnifiedESP:Toggle(true)
+		UnifiedESP:SetMode(selectedMode)
+
+		print("✓ Đổi sang chế độ ESP: " .. selectedMode)
+	end
+})
 
 	--=============================================================================
 	-- CẤU HÌNH BOX (CHUNG CHO CẢ 2 MODE)
