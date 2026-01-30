@@ -1,7 +1,7 @@
 --=== MODE SELECTION ===--
 
-return function(EspPage, ChamsAPI)
-local MainSection = EspPage:Section({
+return function(EspPlayerPage, ChamsAPI)
+local MainSection = EspPlayerPage:Section({
 Name = "Chams ESP",
 Description = "Làm nổi bật người chơi & NPC qua tường",
 Icon = "10709782230",
@@ -70,7 +70,7 @@ MainSection:Slider({
 -- SECTION 2: VISUAL SETTINGS
 -- =============================================
 
-local VisualSection = EspPage:Section({
+local VisualSection = EspPlayerPage:Section({
     Name = "Visual Settings",
     Description = "Customize chams appearance",
     Icon = "10709818534",
@@ -129,7 +129,7 @@ VisualSection:Label("Outline Color"):Colorpicker({
 -- SECTION 3: VISIBILITY COLORS
 -- =============================================
 
-local VisibilitySection = EspPage:Section({
+local VisibilitySection = EspPlayerPage:Section({
     Name = "Visibility Colors",
     Description = "Colors based on line of sight",
     Icon = "10709818534",
@@ -200,7 +200,7 @@ VisibilitySection:Label("Hidden Outline"):Colorpicker({
 -- SECTION 4: TEAM SETTINGS
 -- =============================================
 
-local TeamSection = EspPage:Section({
+local TeamSection = EspPlayerPage:Section({
     Name = "Team Settings",
     Description = "Configure team-based colors",
     Icon = "10709818534",
@@ -311,7 +311,7 @@ TeamSection:Label("No Team Color"):Colorpicker({
 -- SECTION 5: NPC SETTINGS
 -- =============================================
 
-local NPCSection = EspPage:Section({
+local NPCSection = EspPlayerPage:Section({
     Name = "NPC Settings",
     Description = "Configure NPC detection and colors",
     Icon = "10709818534",
@@ -406,7 +406,7 @@ NPCSection:Label("Boss NPC"):Colorpicker({
 -- SECTION 6: PERFORMANCE SETTINGS
 -- =============================================
 
-local PerformanceSection = EspPage:Section({
+local PerformanceSection = EspPlayerPage:Section({
     Name = "Performance",
     Description = "Optimize ESP performance",
     Icon = "10709818534",
@@ -445,7 +445,7 @@ PerformanceSection:Slider({
 -- SECTION 7: INFO & ACTIONS
 -- =============================================
 
-local InfoSection = EspPage:Section({
+local InfoSection = EspPlayerPage:Section({
     Name = "Info & Actions",
     Description = "View stats and perform actions",
     Icon = "10709818534",
