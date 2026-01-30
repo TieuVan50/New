@@ -23,7 +23,7 @@ local Cache = {
 }
 
 --═══════════════════════════════════════════════════════════════════════════════
---  DANH SÁCH TAG NPC
+--  DANH SÁCH TAG NPC (EXPANDED - GIỐNG CHAMS)
 --═══════════════════════════════════════════════════════════════════════════════
 
 local NPCTags = {
@@ -36,6 +36,15 @@ local NPCTags = {
 	"Boss", "boss", "MiniBoss", "miniboss", "Guard", "guard",
 	"Guardian", "guardian", "Soldier", "soldier", "Warrior", "warrior",
 	"Fighter", "fighter", "Target", "target", "Dummy", "dummy",
+	"Dummies", "dummies", "Skeleton", "skeleton", "Orc", "orc",
+	"Goblin", "goblin", "Robot", "robot", "Drone", "drone",
+	"Android", "android", "Cyborg", "cyborg", "Automaton", "automaton",
+	"Servant", "servant", "Minion", "minion", "Slave", "slave", "Pawn", "pawn",
+	"AI", "ai", "A.I.", "Char", "char", "Character", "character",
+	"Model", "model", "Event", "event", "Special", "special",
+	"Angel", "angel", "Archangel", "archangel", "Crystal", "crystal",
+	"Demon", "demon", "Elf", "elf", "Ghost", "ghost", "Santa", "santa",
+	"Slime", "slime", "Vampire", "vampire", "Void Slime", "void slime",
 }
 
 --═══════════════════════════════════════════════════════════════════════════════
@@ -50,6 +59,7 @@ local GLOBAL_CONFIG = {
 	-- Cấu hình chung
 	BoxColor     = Color3.fromRGB(0, 255, 0),
 	BoxThickness = 2,
+	MaxDistance = 10000,
 	
 	-- Team Check
 	EnableTeamCheck = false,
@@ -70,12 +80,15 @@ local GLOBAL_CONFIG = {
 	EnableGradientAnimation = false,
 	GradientAnimationSpeed = 1,
 	
-	-- NPC Specific
+	-- NPC Specific (GIỐNG CHAMS)
+	NPCEnabled = false,
+	NPCMaxDistance = 10000,
+	NPCFillColor = Color3.fromRGB(255, 165, 0),
+	StandardNPCColor = Color3.fromRGB(255, 0, 0),
+	BossNPCColor = Color3.fromRGB(255, 165, 0),
 	EnableTagFilter = true,
 	AggressiveNPCDetection = false,
 	UseNPCColors = false,
-	StandardNPCColor = Color3.fromRGB(255, 0, 0),
-	BossNPCColor = Color3.fromRGB(255, 165, 0),
 	
 	-- Text Stroke (FIX)
 	TextStrokeSize = 1,
@@ -152,8 +165,44 @@ function TeamSystem.isSameTeam(player1, player2)
 	return team1.Name == team2.Name
 end
 
+local function gameHasTeams()
+	local teams = game:GetService("Teams")
+	if not teams then return false end
+	return #teams:GetTeams() > 0
+end
+
+local function getPlayerTeamColor(targetPlayer)
+	if not targetPlayer then return nil end
+	if not targetPlayer.Team then return nil end
+	return targetPlayer.Team.TeamColor.Color
+end
+
+local function isEnemy(targetPlayer)
+	if not targetPlayer then return true end
+	if not targetPlayer.Character then return true end
+	
+	if not gameHasTeams() then return true end
+	
+	if not LocalPlayer.Team then
+		if not targetPlayer.Team then return false end
+		return true
+	end
+	
+	if not targetPlayer.Team then return true end
+	
+	return LocalPlayer.Team ~= targetPlayer.Team
+end
+
+local function shouldShowPlayer(targetPlayer)
+	if not GLOBAL_CONFIG.EnableTeamCheck then return true end
+	local isEnemyPlayer = isEnemy(targetPlayer)
+	if GLOBAL_CONFIG.ShowEnemyOnly and not isEnemyPlayer then return false end
+	if GLOBAL_CONFIG.ShowAlliedOnly and isEnemyPlayer then return false end
+	return true
+end
+
 --═══════════════════════════════════════════════════════════════════════════════
---  NPC SYSTEM
+--  NPC SYSTEM (GIỐNG CHAMS - ĐẦY ĐỦ)
 --═══════════════════════════════════════════════════════════════════════════════
 
 local NPCSystem = {}
@@ -179,50 +228,51 @@ function NPCSystem.isNPC(character)
 		return true
 	end
 	
-	if not GLOBAL_CONFIG.EnableTagFilter then
-		return true
+	if GLOBAL_CONFIG.EnableTagFilter then
+		for _, tag in ipairs(NPCTags) do
+			if string.find(character.Name, tag) then
+				return true
+			end
+		end
+		return false
 	end
 	
-	local charName = character.Name:lower()
-	for _, tag in pairs(NPCTags) do
-		if charName:find(tag:lower(), 1, true) then return true end
-	end
-	
-	local npcFolders = {"NPCs", "Enemies", "Bots", "Mobs", "Targets", "Enemy", "Hostile",
-		"Monsters", "Zombies", "Creatures", "Characters", "Spawns", "EnemySpawns", "NPCSpawns", "Bosses"}
-	
-	for _, folderName in pairs(npcFolders) do
-		local folder = workspace:FindFirstChild(folderName)
-		if folder and character:IsDescendantOf(folder) then return true end
-	end
-	
-	local npcIndicators = {"NPC", "IsNPC", "IsEnemy", "Hostile"}
-	for _, indicator in pairs(npcIndicators) do
-		local val = character:FindFirstChild(indicator)
-		if val and val:IsA("BoolValue") and val.Value == true then return true end
-	end
-	
-	return false
+	return true
 end
 
-function NPCSystem.isBoss(character)
-	if not character then return false end
+function NPCSystem.isBoss(npc)
+	if not npc then return false end
 	
-	local charName = character.Name:lower()
-	if charName:find("boss") or charName:find("miniboss") or charName:find("leader") then
-		return true
+	local isBossTag = function(str)
+		local str_lower = string.lower(str)
+		return string.find(str_lower, "boss") or string.find(str_lower, "miniboss") or string.find(str_lower, "guardian")
 	end
+	
+	if isBossTag(npc.Name) then return true end
+	
+	local humanoid = npc:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.MaxHealth > 100 then return true end
 	
 	return false
 end
 
 function NPCSystem.findNPCsRecursive(parent)
 	local foundNPCs = {}
-	for _, instance in pairs(parent:GetDescendants()) do
-		if NPCSystem.isNPC(instance) then
-			table.insert(foundNPCs, instance)
+	
+	local function scan(obj)
+		if obj:IsA("Model") and NPCSystem.isNPC(obj) then
+			table.insert(foundNPCs, obj)
+		end
+		
+		local success, children = pcall(function() return obj:GetChildren() end)
+		if success then
+			for _, child in pairs(children) do
+				scan(child)
+			end
 		end
 	end
+	
+	scan(parent)
 	return foundNPCs
 end
 
@@ -285,16 +335,18 @@ function Utils.getBoxColor(target)
 		local targetPlayer = Services.Players:GetPlayerFromCharacter(target)
 		if GLOBAL_CONFIG.UseTeamColors then
 			if GLOBAL_CONFIG.UseActualTeamColors then
-				local team = TeamSystem.getPlayerTeam(targetPlayer)
-				if team and team.TeamColor then
-					return Color3.fromRGB(team.TeamColor.r * 255, team.TeamColor.g * 255, team.TeamColor.b * 255)
+				local teamColor = getPlayerTeamColor(targetPlayer)
+				if teamColor then
+					return teamColor
+				else
+					return GLOBAL_CONFIG.NoTeamColor
 				end
-			end
-			
-			if TeamSystem.isSameTeam(LocalPlayer, targetPlayer) then
-				return GLOBAL_CONFIG.AlliedBoxColor
 			else
-				return GLOBAL_CONFIG.EnemyBoxColor
+				if isEnemy(targetPlayer) then
+					return GLOBAL_CONFIG.EnemyBoxColor
+				else
+					return GLOBAL_CONFIG.AlliedBoxColor
+				end
 			end
 		end
 		return GLOBAL_CONFIG.BoxColor
@@ -309,35 +361,20 @@ function Utils.getBoxColor(target)
 		end
 	end
 	
-	return GLOBAL_CONFIG.BoxColor
+	return GLOBAL_CONFIG.NPCFillColor
 end
 
---═══════════════════════════════════════════════════════════════════════════════
---  GRADIENT MANAGER
---═══════════════════════════════════════════════════════════════════════════════
-
-local GradientManager = {}
-
-function GradientManager.start()
-	if EspStorage.GradientConnection then return end
-	
-	EspStorage.GradientConnection = Services.RunService.Heartbeat:Connect(function()
-		if not GLOBAL_CONFIG.EnableGradientAnimation then return end
-		
-		EspStorage.RotationOffset = (EspStorage.RotationOffset + GLOBAL_CONFIG.GradientAnimationSpeed) % 360
-		
-		for target, espData in pairs(EspStorage.Boxes) do
-			if espData.UIGradient then
-				espData.UIGradient.Rotation = EspStorage.RotationOffset
-			end
-		end
-	end)
+function Utils.getDistance(position)
+	return (position - Camera.CFrame.p).Magnitude
 end
 
-function GradientManager.stop()
-	if EspStorage.GradientConnection then
-		EspStorage.GradientConnection:Disconnect()
-		EspStorage.GradientConnection = nil
+function Utils.shouldShowTarget(target)
+	if Services.Players:GetPlayerFromCharacter(target) then
+		local targetPlayer = Services.Players:GetPlayerFromCharacter(target)
+		return shouldShowPlayer(targetPlayer) and Utils.getDistance(target.HumanoidRootPart.Position) <= GLOBAL_CONFIG.MaxDistance
+	else
+		-- NPC
+		return Utils.getDistance(target.HumanoidRootPart.Position) <= GLOBAL_CONFIG.NPCMaxDistance
 	end
 end
 
@@ -348,75 +385,108 @@ end
 local BoxManager = {}
 
 function BoxManager.create(target)
-	if EspStorage.Boxes[target] then return end
+	if EspStorage.Boxes[target] then
+		return
+	end
+	
+	if not target or not target.Parent then
+		return
+	end
+	
+	-- Kiểm tra xem có Humanoid không
+	local character
+	if target:IsA("Player") then
+		character = target.Character
+	else
+		character = target
+	end
+	
+	if not character then return end
+	
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	
+	if not humanoid or not hrp then return end
 	
 	local screenGui = initializeScreenGui()
 	
-	-- Main Holder (Box Container)
+	-- Create Holder
 	local holder = Instance.new("Frame")
-	holder.Name = "ESPBox"
-	holder.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	holder.Name = "BoxHolder"
 	holder.BackgroundTransparency = 1
-	holder.BorderSizePixel = 0
 	holder.Parent = screenGui
-	holder.ZIndex = 10
 	
-	-- UIStroke for box outline
+	-- Create UIStroke for box outline
 	local boxOutline = Instance.new("UIStroke")
-	boxOutline.Parent = holder
 	boxOutline.Thickness = GLOBAL_CONFIG.BoxThickness
-	boxOutline.LineJoinMode = Enum.LineJoinMode.Miter
-	boxOutline.Transparency = 0
+	boxOutline.LineJoinMode = Enum.LineJoinMode.Round
+	boxOutline.Color = Utils.getBoxColor(target)
+	boxOutline.Parent = holder
 	
-	-- Optional Gradient Background
+	-- Create BoxGradient (optional)
 	local boxGradient = Instance.new("Frame")
-	boxGradient.Name = "Gradient"
+	boxGradient.Name = "BoxGradient"
 	boxGradient.BackgroundColor3 = GLOBAL_CONFIG.GradientColor1
 	boxGradient.BackgroundTransparency = GLOBAL_CONFIG.GradientTransparency
 	boxGradient.BorderSizePixel = 0
-	boxGradient.Parent = holder
 	boxGradient.Visible = GLOBAL_CONFIG.ShowGradient
+	boxGradient.Parent = holder
 	
+	-- Create UIGradient inside gradient frame
 	local uiGradient = Instance.new("UIGradient")
-	uiGradient.Parent = boxGradient
 	uiGradient.Color = ColorSequence.new{
 		ColorSequenceKeypoint.new(0.000, GLOBAL_CONFIG.GradientColor1),
 		ColorSequenceKeypoint.new(1.000, GLOBAL_CONFIG.GradientColor2)
 	}
 	uiGradient.Rotation = GLOBAL_CONFIG.GradientRotation
+	uiGradient.Parent = boxGradient
 	
-	-- Name label removed - only box is shown
-	
-	-- Store data
 	EspStorage.Boxes[target] = {
 		Holder = holder,
 		BoxOutline = boxOutline,
 		BoxGradient = boxGradient,
-		UIGradient = uiGradient,
-		Target = target
+		UIGradient = uiGradient
 	}
 end
 
 function BoxManager.update(target, espData)
-	if not target or not target.Parent then
-		BoxManager.remove(target)
+	if not target or not target.Parent or not espData then
 		return
 	end
 	
-	-- Get humanoid root part
-	local humanoidRootPart
-	if target:IsA("Player") and target.Character then
-		humanoidRootPart = target.Character:FindFirstChild("HumanoidRootPart")
-	elseif target:IsA("Model") then
-		humanoidRootPart = target:FindFirstChild("HumanoidRootPart")
+	-- Get character
+	local character
+	if target:IsA("Player") then
+		character = target.Character
+	else
+		character = target
 	end
 	
-	if not humanoidRootPart then
-		BoxManager.remove(target)
+	if not character then return end
+	
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	
+	if not humanoid or not hrp or humanoid.Health <= 0 then return end
+	
+	-- Check distance
+	local distance = Utils.getDistance(hrp.Position)
+	local maxDist = Services.Players:GetPlayerFromCharacter(target) and GLOBAL_CONFIG.MaxDistance or GLOBAL_CONFIG.NPCMaxDistance
+	
+	if distance > maxDist then
+		espData.Holder.Visible = false
 		return
 	end
 	
-	local boxSize, boxPos, onScreen, distance = Utils.boxSolve(humanoidRootPart)
+	-- Check team filters for players
+	if Services.Players:GetPlayerFromCharacter(target) then
+		if not shouldShowPlayer(Services.Players:GetPlayerFromCharacter(target)) then
+			espData.Holder.Visible = false
+			return
+		end
+	end
+	
+	local boxSize, boxPos, onScreen = Utils.boxSolve(hrp)
 	
 	if not boxSize or not boxPos then
 		return
@@ -525,12 +595,14 @@ function PlayerMode.cleanup()
 end
 
 --═══════════════════════════════════════════════════════════════════════════════
---  NPC MODE
+--  NPC MODE (GIỐNG CHAMS)
 --═══════════════════════════════════════════════════════════════════════════════
 
 local NPCMode = {}
 
 function NPCMode.scanForNPCs()
+	if not GLOBAL_CONFIG.NPCEnabled then return end
+	
 	local foundNPCs = NPCSystem.findNPCsRecursive(workspace)
 	
 	local foundSet = {}
@@ -538,12 +610,14 @@ function NPCMode.scanForNPCs()
 		foundSet[npc] = true
 	end
 	
+	-- Remove NPCs that no longer exist
 	for npc in pairs(EspStorage.TrackedNPCs) do
 		if not foundSet[npc] or not npc.Parent then
 			BoxManager.remove(npc)
 		end
 	end
 	
+	-- Add new NPCs
 	for _, npc in pairs(foundNPCs) do
 		if not EspStorage.TrackedNPCs[npc] then
 			EspStorage.TrackedNPCs[npc] = true
@@ -557,7 +631,7 @@ function NPCMode.initialize()
 	
 	if not EspStorage.ScanConnection then
 		EspStorage.ScanConnection = Services.RunService.Heartbeat:Connect(function()
-			if GLOBAL_CONFIG.Mode == "NPC" then
+			if GLOBAL_CONFIG.NPCEnabled then
 				NPCMode.scanForNPCs()
 			end
 		end)
@@ -634,14 +708,6 @@ function UnifiedESPModule:UpdateConfig(newConfig)
 			GLOBAL_CONFIG[key] = value
 		end
 	end
-	
-	if newConfig.EnableGradientAnimation ~= nil then
-		if newConfig.EnableGradientAnimation then
-			GradientManager.start()
-		else
-			GradientManager.stop()
-		end
-	end
 end
 
 function UnifiedESPModule:GetConfig()
@@ -650,6 +716,15 @@ end
 
 function UnifiedESPModule:Toggle(state)
 	GLOBAL_CONFIG.Enabled = state
+end
+
+function UnifiedESPModule:ToggleNPC(state)
+	GLOBAL_CONFIG.NPCEnabled = state
+	if not state then
+		NPCMode.cleanup()
+	else
+		NPCMode.initialize()
+	end
 end
 
 function UnifiedESPModule:SetMode(mode)
@@ -664,9 +739,27 @@ function UnifiedESPModule:GetMode()
 	return GLOBAL_CONFIG.Mode
 end
 
+function UnifiedESPModule:GetTrackedNPCs()
+	local npcList = {}
+	for npc in pairs(EspStorage.TrackedNPCs) do
+		if npc.Parent then
+			table.insert(npcList, npc)
+		end
+	end
+	return npcList
+end
+
+function UnifiedESPModule:GetTrackedPlayers()
+	local playerList = {}
+	for target in pairs(EspStorage.Boxes) do
+		if target:IsA("Player") then
+			table.insert(playerList, target)
+		end
+	end
+	return playerList
+end
+
 function UnifiedESPModule:Destroy()
-	GradientManager.stop()
-	
 	if EspStorage.RenderConnection then
 		EspStorage.RenderConnection:Disconnect()
 	end
@@ -682,24 +775,6 @@ function UnifiedESPModule:Destroy()
 	if EspStorage.MainScreenGui then
 		EspStorage.MainScreenGui:Destroy()
 	end
-end
-
-function UnifiedESPModule:GetTrackedPlayers()
-	local playerList = {}
-	for target in pairs(EspStorage.Boxes) do
-		if target:IsA("Player") then
-			table.insert(playerList, target)
-		end
-	end
-	return playerList
-end
-
-function UnifiedESPModule:GetTrackedNPCs()
-	local npcList = {}
-	for npc in pairs(EspStorage.TrackedNPCs) do
-		table.insert(npcList, npc)
-	end
-	return npcList
 end
 
 return UnifiedESPModule
