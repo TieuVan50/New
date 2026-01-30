@@ -1,0 +1,209 @@
+--=== CHẾ ĐỘ HOẠT ĐỘNG ===--
+
+ChamsSection:Dropdown({
+	Name = "Chế độ Chams",
+	Flag = "ChamsMode",
+	Default = "Both",
+	Items = {"Player", "NPC", "Both"},
+	Callback = function(Value)
+		local selectedMode = type(Value) == "table" and Value[1] or Value
+		ChamsAPI:SetMode(selectedMode)
+	end
+})
+
+--=== CẤU HÌNH NGƯỜI CHƠI (PLAYER) ===--
+
+ChamsSection:Toggle({
+	Name = "Bật Chams Người Chơi",
+	Flag = "ChamsToggle",
+	Default = false,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({enabled = Value})
+		ChamsAPI:Toggle(Value)
+	end
+})
+
+ChamsSection:Toggle({
+	Name = "Kiểm tra Đội (Team Check)",
+	Flag = "ChamsTeamCheck",
+	Default = false,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({enableTeamCheck = Value})
+	end
+})
+
+ChamsSection:Toggle({
+	Name = "Chỉ hiện Kẻ Địch",
+	Flag = "ChamsEnemyOnly",
+	Default = false,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({showEnemyOnly = Value})
+	end
+})
+
+ChamsSection:Toggle({
+	Name = "Sử dụng màu Đội",
+	Flag = "ChamsUseTeamColors",
+	Default = false,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({useTeamColors = Value})
+	end
+})
+
+ChamsSection:Toggle({
+	Name = "Màu Đội thực tế (BrickColor)",
+	Flag = "ChamsUseActualTeamColors",
+	Default = true,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({useActualTeamColors = Value})
+	end
+})
+
+--=== CẤU HÌNH NPC ===--
+
+ChamsSection:Toggle({
+	Name = "Bật Chams NPC",
+	Flag = "ChamsNPCToggle",
+	Default = false,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({NPCEnabled = Value})
+		ChamsAPI:ToggleNPC(Value)
+	end
+})
+
+ChamsSection:Toggle({
+	Name = "Lọc theo Tag (NPC)",
+	Flag = "ChamsTagFilter",
+	Default = true,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({EnableTagFilter = Value})
+	end
+})
+
+ChamsSection:Toggle({
+	Name = "Dò tìm NPC mạnh (Aggressive)",
+	Flag = "ChamsAggressiveNPC",
+	Default = false,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({AggressiveNPCDetection = Value})
+	end
+})
+
+ChamsSection:Toggle({
+	Name = "Sử dụng màu riêng cho NPC",
+	Flag = "ChamsUseNPCColors",
+	Default = false,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({UseNPCColors = Value})
+	end
+})
+
+--=== THÔNG SỐ HIỂN THỊ ===--
+
+ChamsSection:Dropdown({
+	Name = "Chế độ hiển thị (Depth)",
+	Flag = "ChamsDepthMode",
+	Default = "AlwaysOnTop",
+	Items = {"AlwaysOnTop", "Occluded"},
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({depthMode = Value})
+	end
+})
+
+ChamsSection:Toggle({
+	Name = "Màu sắc theo tầm nhìn (Vis)",
+	Flag = "ChamsVisibilityColors",
+	Default = false,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({useVisibilityColors = Value})
+	end
+})
+
+ChamsSection:Slider({
+	Name = "Độ trong suốt Fill",
+	Flag = "ChamsFillTransparency",
+	Min = 0, Max = 1, Default = 0.5, Decimals = 0.01,
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({fillTransparency = Value})
+	end
+})
+
+ChamsSection:Slider({
+	Name = "Khoảng cách tối đa",
+	Flag = "ChamsMaxDistance",
+	Min = 100, Max = 20000, Default = 10000, Decimals = 100, Suffix = "m",
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({maxDistance = Value})
+	end
+})
+
+--=== BẢNG MÀU ===--
+
+ChamsSection:Label("Màu sắc cơ bản")
+
+ChamsSection:Colorpicker({
+	Name = "Màu Fill mặc định",
+	Flag = "ChamsFillColor",
+	Default = Color3.fromRGB(0, 255, 140),
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({fillColor = Value})
+	end
+})
+
+ChamsSection:Colorpicker({
+	Name = "Màu Outline mặc định",
+	Flag = "ChamsOutlineColor",
+	Default = Color3.fromRGB(0, 255, 140),
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({outlineColor = Value})
+	end
+})
+
+ChamsSection:Label("Màu sắc Đội/Tầm nhìn")
+
+ChamsSection:Colorpicker({
+	Name = "Màu Kẻ Địch",
+	Flag = "ChamsEnemyFillColor",
+	Default = Color3.fromRGB(255, 0, 0),
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({enemyFillColor = Value})
+	end
+})
+
+ChamsSection:Colorpicker({
+	Name = "Màu Đồng Đội",
+	Flag = "ChamsAlliedFillColor",
+	Default = Color3.fromRGB(0, 255, 0),
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({alliedFillColor = Value})
+	end
+})
+
+ChamsSection:Colorpicker({
+	Name = "Màu Khi Nhìn Thấy",
+	Flag = "ChamsVisibleFillColor",
+	Default = Color3.fromRGB(0, 255, 0),
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({visibleFillColor = Value})
+	end
+})
+
+ChamsSection:Colorpicker({
+	Name = "Màu Khi Bị Che",
+	Flag = "ChamsHiddenFillColor",
+	Default = Color3.fromRGB(255, 0, 0),
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({hiddenFillColor = Value})
+	end
+})
+
+ChamsSection:Label("Màu sắc NPC")
+
+ChamsSection:Colorpicker({
+	Name = "Màu Boss",
+	Flag = "ChamsBossNPCColor",
+	Default = Color3.fromRGB(255, 165, 0),
+	Callback = function(Value)
+		ChamsAPI:UpdateConfig({BossNPCColor = Value})
+	end
+})
