@@ -24,22 +24,29 @@ return function(EspPage, UnifiedESP)
 	-- DROPDOWN CHỌN MODE (PLAYER HOẶC NPC)
 	--=============================================================================
 
-
-EspSection:Dropdown({
-	Name = "Chế độ ESP",
-	Flag = "ESPMode",
-	Default = "Player",
-	Items = {"Player", "NPC", "Both"},
-	Multi = false,
-	Callback = function(Value)
-		local selectedMode = type(Value) == "table" and Value[1] or Value
-
-		UnifiedESP:Toggle(true)
-		UnifiedESP:SetMode(selectedMode)
-
-		print("✓ Đổi sang chế độ ESP: " .. selectedMode)
-	end
-})
+	EspSection:Dropdown({
+		Name = "Chế độ ESP",
+		Flag = "ESPMode",
+		Default = "Player",
+		Items = {"Player", "NPC", "Both"},
+		Multi = false,
+		Callback = function(Value)
+			local selectedMode = type(Value) == "table" and Value[1] or Value
+			
+			if selectedMode == "Player" then
+				UnifiedESP:Toggle(true)
+				UnifiedESP:SetMode("Player")
+			elseif selectedMode == "NPC" then
+				UnifiedESP:Toggle(false)
+				UnifiedESP:SetMode("NPC")
+			elseif selectedMode == "Both" then
+				UnifiedESP:Toggle(true)
+				UnifiedESP:SetMode("NPC")
+			end
+			
+			print("✓ Đổi sang chế độ: " .. selectedMode)
+		end
+	})
 
 	--=============================================================================
 	-- CẤU HÌNH BOX (CHUNG CHO CẢ 2 MODE)
@@ -66,6 +73,25 @@ EspSection:Dropdown({
 		Default = Color3.fromRGB(255, 255, 255),
 		Callback = function(Value)
 			UnifiedESP:UpdateConfig({BoxColor = Value})
+		end
+	})
+
+	--=============================================================================
+	-- CẤU HÌNH KHOẢNG CÁCH
+	--=============================================================================
+
+	EspSection:Label("─ Cấu Hình Khoảng Cách ─")
+
+	EspSection:Slider({
+		Name = "Player Max Distance",
+		Flag = "MaxDistance",
+		Min = 100,
+		Max = 10000,
+		Default = 10000,
+		Decimals = 100,
+		Suffix = "m",
+		Callback = function(Value)
+			UnifiedESP:UpdateConfig({MaxDistance = Value})
 		end
 	})
 
@@ -156,6 +182,19 @@ EspSection:Dropdown({
 	--=============================================================================
 
 	EspSection:Label("─ Cấu Hình NPC ─")
+
+	EspSection:Slider({
+		Name = "NPC Max Distance",
+		Flag = "NPCMaxDistance",
+		Min = 100,
+		Max = 10000,
+		Default = 10000,
+		Decimals = 100,
+		Suffix = "m",
+		Callback = function(Value)
+			UnifiedESP:UpdateConfig({NPCMaxDistance = Value})
+		end
+	})
 
 	EspSection:Toggle({
 		Name = "Lọc Tag NPC",
