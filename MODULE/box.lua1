@@ -551,7 +551,14 @@ end
 function BoxManager.update(targetPlayer, espData)
 	if not espData or not espData.Box then return end
 	
-	local character = targetPlayer.Character or targetPlayer
+	-- Phân biệt giữa Player và NPC
+	local character
+	if espData.IsNPC then
+		character = targetPlayer  -- Nếu là NPC, targetPlayer đã là character
+	else
+		character = targetPlayer.Character or targetPlayer  -- Nếu là Player
+	end
+	
 	if not character or character.Parent == nil then
 		espData.Box.Visible = false
 		return
@@ -569,6 +576,7 @@ function BoxManager.update(targetPlayer, espData)
 		return
 	end
 	
+	-- Chỉ kiểm tra team nếu là Player
 	if not espData.IsNPC and CONFIG.EnableTeamCheck then
 		local isEnemyPlayer = Utils.isEnemy(targetPlayer)
 		
@@ -641,6 +649,7 @@ function BoxManager.update(targetPlayer, espData)
 	
 	espData.Box.Visible = isInFront and isInViewportX and isInViewportY
 end
+
 
 function BoxManager.remove(targetPlayer)
 	local espData = EspStorage.Boxes[targetPlayer]
