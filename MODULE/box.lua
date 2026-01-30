@@ -1,58 +1,24 @@
---═══════════════════════════════════════════════════════════════════════════════
---  UNIFIED BOX SYSTEM - PLAYER & NPC (OPTIMIZED)
---═══════════════════════════════════════════════════════════════════════════════
-
 local Services = {
-	Players         = game:GetService("Players"),
-	RunService      = game:GetService("RunService"),
-	Teams           = game:GetService("Teams"),
-	Workspace       = game:GetService("Workspace"),
-	CoreGui         = game:GetService("CoreGui")
+	Players = game:GetService("Players"),
+	RunService = game:GetService("RunService"),
+	UserInputService = game:GetService("UserInputService"),
+	TweenService = game:GetService("TweenService")
 }
 
---═══════════════════════════════════════════════════════════════════════════════
---  BIẾN CỤC BỘ & CACHE
---═══════════════════════════════════════════════════════════════════════════════
-
-local LocalPlayer = Services.Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local ViewportSize = Camera.ViewportSize
-
--- Danh sách các Tag để nhận diện NPC
-local NPCTags = {
-	"NPC", "Npc", "npc", "Enemy", "enemy", "Enemies", "enemies",
-	"Hostile", "hostile", "Bad", "bad", "BadGuy", "badguy",
-	"Foe", "foe", "Opponent", "opponent", "Bot", "bot", "Bots", "bots",
-	"Mob", "mob", "Mobs", "mobs", "Monster", "monster", "Monsters", "monsters",
-	"Zombie", "zombie", "Zombies", "zombies", "Creature", "creature",
-	"Boss", "boss", "MiniBoss", "miniboss", "Guard", "guard",
-	"Soldier", "soldier", "Dummy", "dummy"
-}
-
---═══════════════════════════════════════════════════════════════════════════════
---  CẤU HÌNH (CONFIG TABLE)
---═══════════════════════════════════════════════════════════════════════════════
+local Cache = (function()
+	local localPlayer = Services.Players.LocalPlayer
+	return {
+		LocalPlayer = localPlayer,
+		Mouse = localPlayer:GetMouse(),
+		Camera = workspace.CurrentCamera,
+		PlayerGui = localPlayer:WaitForChild("PlayerGui")
+	}
+end)()
 
 local CONFIG = {
-	-- Trạng thái & Chế độ
-	Enabled = false,
-	Mode = "Player", -- "Player" hoặc "NPC"
-	
-	-- Box Style
 	BoxColor = Color3.fromRGB(255, 255, 255),
-	BoxThickness = 1,
-	BoxTransparency = 1, -- Độ trong suốt khung nền (thường là 1 để rỗng)
-	
-	-- Gradient Settings
-	ShowGradient = false,
-	GradientColor1 = Color3.fromRGB(255, 86, 0),
-	GradientColor2 = Color3.fromRGB(255, 0, 128),
-	GradientTransparency = 0.5,
-	GradientRotation = 90,
-	EnableGradientAnimation = false,
-	GradientAnimationSpeed = 1,
-	
-	-- Team Settings (Player Mode)
+	BoxThickness = 0.5,
+	Enabled = false,
 	EnableTeamCheck = false,
 	ShowEnemyOnly = false,
 	ShowAlliedOnly = false,
@@ -61,130 +27,214 @@ local CONFIG = {
 	EnemyBoxColor = Color3.fromRGB(255, 0, 0),
 	AlliedBoxColor = Color3.fromRGB(0, 255, 0),
 	NoTeamColor = Color3.fromRGB(255, 255, 255),
-	
-	-- NPC Settings
-	EnableNPCTagFilter = true,
-	AggressiveNPCDetection = false,
-	NPCBoxColor = Color3.fromRGB(255, 50, 50)
+	ShowGradient = false,
+	GradientColor1 = Color3.fromRGB(255, 86, 0),
+	GradientColor2 = Color3.fromRGB(255, 0, 128),
+	GradientTransparency = 0.7,
+	GradientRotation = 90,
+	EnableGradientAnimation = false,
+	GradientAnimationSpeed = 1,
+	Mode = "Player",
+	EnableNPCBox = false,
+	NPCBoxColor = Color3.fromRGB(255, 0, 0),
+	BossBoxColor = Color3.fromRGB(255, 165, 0),
+	UseNPCColors = false,
+	EnableTagFilter = true,
+	AggressiveNPCDetection = false
 }
 
---═══════════════════════════════════════════════════════════════════════════════
---  QUẢN LÝ DỮ LIỆU (STORAGE)
---═══════════════════════════════════════════════════════════════════════════════
-
-local Storage = {
-	ActiveBoxes = {},       -- Lưu trữ GUI Box hiện tại
-	TrackedNPCs = {},       -- Lưu danh sách NPC đã tìm thấy
-	Connections = {},       -- Lưu các kết nối sự kiện (RenderStepped, PlayerAdded...)
-	GradientRotation = 0,   -- Biến đếm cho animation gradient
-	ScreenGui = nil         -- GUI chính
+local EspStorage = {
+	Boxes = {},
+	TrackedNPCs = {},
+	GradientConnection = nil,
+	RotationOffset = 0,
+	MainScreenGui = nil,
+	ScanConnection = nil
 }
 
---═══════════════════════════════════════════════════════════════════════════════
---  HỆ THỐNG TEAM (TEAM LOGIC)
---═══════════════════════════════════════════════════════════════════════════════
+local NPCTags = {
+	"NPC", "Npc", "npc", "Enemy", "enemy", "Enemies", "enemies",
+	"Hostile", "hostile", "Bad", "bad", "BadGuy", "badguy",
+	"Foe", "foe", "Opponent", "opponent", "Bot", "bot", "Bots", "bots",
+	"Mob", "mob", "Mobs", "mobs", "Monster", "monster", "Monsters", "monsters",
+	"Zombie", "zombie", "Zombies", "zombies", "Creature", "creature",
+	"Animal", "animal", "Beast", "beast", "Villain", "villain",
+	"Boss", "boss", "MiniBoss", "miniboss", "Guard", "guard",
+	"Guardian", "guardian", "Soldier", "soldier", "Warrior", "warrior",
+	"Fighter", "fighter", "Target", "target", "Dummy", "dummy",
+}
 
-local TeamLogic = {}
-
--- Tìm kiếm dịch vụ Teams hoặc folder Teams
-function TeamLogic.getTeamsService()
-	if Services.Teams then return Services.Teams end
-	return game:FindFirstChild("Teams")
+local function initializeScreenGui()
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "BoxESP"
+	screenGui.ResetOnSpawn = false
+	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	screenGui.IgnoreGuiInset = true
+	screenGui.DisplayOrder = 999
+	screenGui.Parent = Cache.PlayerGui
+	EspStorage.MainScreenGui = screenGui
+	return screenGui
 end
 
--- Lấy Team của Player (Hỗ trợ nhiều kiểu game)
-function TeamLogic.getPlayerTeam(targetPlayer)
+local TeamSystem = {}
+
+function TeamSystem.getTeamsService()
+	local teamsService = game:FindService("Teams")
+	if teamsService and #teamsService:GetTeams() > 0 then
+		return teamsService, "TeamsService"
+	end
+	
+	local replicatedStorage = game:GetService("ReplicatedStorage")
+	local teamsFolder = replicatedStorage:FindFirstChild("Teams") 
+		or replicatedStorage:FindFirstChild("TeamData")
+		or replicatedStorage:FindFirstChild("TeamSystem")
+	if teamsFolder then
+		return teamsFolder, "ReplicatedStorage"
+	end
+	
+	local workspaceTeams = workspace:FindFirstChild("Teams")
+		or workspace:FindFirstChild("TeamData")
+	if workspaceTeams then
+		return workspaceTeams, "Workspace"
+	end
+	
+	pcall(function()
+		local serverStorage = game:GetService("ServerStorage")
+		local serverTeams = serverStorage:FindFirstChild("Teams")
+		if serverTeams then
+			return serverTeams, "ServerStorage"
+		end
+	end)
+	
+	return nil, "None"
+end
+
+function TeamSystem.getPlayerTeam(targetPlayer)
 	if not targetPlayer then return nil end
 	
-	-- Cách 1: Thuộc tính Team chuẩn
 	if targetPlayer.Team then
-		return targetPlayer.Team
+		return {
+			Name = targetPlayer.Team.Name,
+			TeamColor = targetPlayer.Team.TeamColor,
+			Instance = targetPlayer.Team
+		}
 	end
 	
-	-- Cách 2: Thuộc tính TeamColor
-	if targetPlayer.TeamColor then
-		return targetPlayer.TeamColor
+	if targetPlayer.TeamColor and targetPlayer.TeamColor ~= BrickColor.new("White") then
+		return {
+			Name = targetPlayer.TeamColor.Name,
+			TeamColor = targetPlayer.TeamColor,
+			Instance = nil
+		}
 	end
 	
-	-- Cách 3: Kiểm tra tên trong Leaderstats (Một số game cũ)
+	local teamAttribute = targetPlayer:GetAttribute("Team") 
+		or targetPlayer:GetAttribute("TeamName")
+		or targetPlayer:GetAttribute("PlayerTeam")
+	if teamAttribute then
+		return {
+			Name = tostring(teamAttribute),
+			TeamColor = nil,
+			Instance = nil
+		}
+	end
+	
+	local teamValue = targetPlayer:FindFirstChild("Team")
+		or targetPlayer:FindFirstChild("TeamValue")
+		or targetPlayer:FindFirstChild("PlayerTeam")
+	if teamValue then
+		if teamValue:IsA("StringValue") or teamValue:IsA("IntValue") then
+			return {
+				Name = tostring(teamValue.Value),
+				TeamColor = nil,
+				Instance = nil
+			}
+		end
+		if teamValue:IsA("ObjectValue") and teamValue.Value then
+			return {
+				Name = teamValue.Value.Name,
+				TeamColor = nil,
+				Instance = teamValue.Value
+			}
+		end
+	end
+	
 	local leaderstats = targetPlayer:FindFirstChild("leaderstats")
 	if leaderstats then
 		local teamStat = leaderstats:FindFirstChild("Team")
-		if teamStat then return teamStat.Value end
+			or leaderstats:FindFirstChild("Faction")
+			or leaderstats:FindFirstChild("Side")
+		if teamStat then
+			return {
+				Name = tostring(teamStat.Value),
+				TeamColor = nil,
+				Instance = nil
+			}
+		end
+	end
+	
+	local character = targetPlayer.Character
+	if character then
+		local charTeam = character:GetAttribute("Team")
+			or character:GetAttribute("TeamName")
+		if charTeam then
+			return {
+				Name = tostring(charTeam),
+				TeamColor = nil,
+				Instance = nil
+			}
+		end
+		
+		local humanoid = character:FindFirstChild("Humanoid")
+		if humanoid then
+			local humTeam = humanoid:GetAttribute("Team")
+			if humTeam then
+				return {
+					Name = tostring(humTeam),
+					TeamColor = nil,
+					Instance = nil
+				}
+			end
+		end
 	end
 	
 	return nil
 end
 
--- Kiểm tra xem 2 người chơi có cùng phe không
-function TeamLogic.isSameTeam(player1, player2)
+function TeamSystem.isSameTeam(player1, player2)
 	if not player1 or not player2 then return false end
+	if player1 == player2 then return true end
 	
-	-- Nếu Team Check bị tắt, coi như là kẻ thù (hoặc hiện tất cả tùy logic hiển thị)
-	-- Nhưng hàm này chỉ trả về việc CÙNG TEAM hay không.
+	local team1 = TeamSystem.getPlayerTeam(player1)
+	local team2 = TeamSystem.getPlayerTeam(player2)
 	
-	local team1 = TeamLogic.getPlayerTeam(player1)
-	local team2 = TeamLogic.getPlayerTeam(player2)
+	if not team1 and not team2 then
+		return true
+	end
 	
-	-- Nếu cả 2 không có team -> Free For All -> Là kẻ thù
-	if not team1 and not team2 then return false end
+	if not team1 or not team2 then
+		return false
+	end
 	
-	return team1 == team2
+	if team1.Instance and team2.Instance then
+		return team1.Instance == team2.Instance
+	end
+	
+	if team1.TeamColor and team2.TeamColor then
+		return team1.TeamColor == team2.TeamColor
+	end
+	
+	return team1.Name == team2.Name
 end
 
--- Kiểm tra xem có phải kẻ thù không (Dựa trên config)
-function TeamLogic.isEnemy(targetPlayer)
-	if not CONFIG.EnableTeamCheck then return true end -- Nếu tắt check team -> Luôn hiển thị
-	return not TeamLogic.isSameTeam(LocalPlayer, targetPlayer)
-end
-
---═══════════════════════════════════════════════════════════════════════════════
---  HỆ THỐNG NPC (NPC LOGIC)
---═══════════════════════════════════════════════════════════════════════════════
-
-local NPCLogic = {}
-
-function NPCLogic.isPlayer(model)
-	return Services.Players:GetPlayerFromCharacter(model) ~= nil
-end
-
-function NPCLogic.isNPC(model)
-	if not model or not model:IsA("Model") then return false end
-	if NPCLogic.isPlayer(model) then return false end -- Bỏ qua nếu là người chơi
+function TeamSystem.hasTeamSystem()
+	local teamsService, location = TeamSystem.getTeamsService()
+	if teamsService and location == "TeamsService" then
+		return true
+	end
 	
-	local humanoid = model:FindFirstChildOfClass("Humanoid")
-	local rootPart = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
-	
-	if not humanoid or not rootPart or humanoid.Health <= 0 then return false end
-	
-	-- Chế độ quét mạnh (Lấy tất cả Model có Humanoid)
-	if CONFIG.AggressiveNPCDetection then return true end
-	
-	-- Lọc theo Tag tên
-	if CONFIG.EnableNPCTagFilter then
-		local nameLower = model.Name:lower()
-		for _, tag in ipairs(NPCTags) do
-			if nameLower:find(tag:lower()) then return true end
-		end
-		
-		-- Kiểm tra Parent folder (Ví dụ: workspace.Enemies)
-		local parent = model.Parent
-		if parent then
-			local parentName = parent.Name:lower()
-			for _, tag in ipairs(NPCTags) do
-				if parentName:find(tag:lower()) then return true end
-			end
-		end
-		
-		-- Kiểm tra BoolValue đánh dấu (IsNPC, Enemy...)
-		for _, child in pairs(model:GetChildren()) do
-			if child:IsA("BoolValue") and (child.Name == "IsNPC" or child.Name == "Enemy") and child.Value == true then
-				return true
-			end
-		end
-		
-		-- Kiểm tra Attribute
-		if model:GetAttribute("IsNPC") == true or model:GetAttribute("Enemy") == true then
+	for _, player in pairs(Services.Players:GetPlayers()) do
+		if TeamSystem.getPlayerTeam(player) then
 			return true
 		end
 	end
@@ -192,287 +242,535 @@ function NPCLogic.isNPC(model)
 	return false
 end
 
---═══════════════════════════════════════════════════════════════════════════════
---  HỆ THỐNG GUI (BOX RENDER)
---═══════════════════════════════════════════════════════════════════════════════
-
-local BoxLogic = {}
-
--- Khởi tạo ScreenGui
-function BoxLogic.initGui()
-	if Storage.ScreenGui then Storage.ScreenGui:Destroy() end
+function TeamSystem.getPlayerTeamColor(targetPlayer)
+	local team = TeamSystem.getPlayerTeam(targetPlayer)
+	if not team then return nil end
 	
-	Storage.ScreenGui = Instance.new("ScreenGui")
-	Storage.ScreenGui.Name = "UnifiedBoxESP"
-	Storage.ScreenGui.ResetOnSpawn = false
-	Storage.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	if team.TeamColor then
+		return team.TeamColor.Color
+	end
 	
-	-- Bảo vệ GUI khỏi các script clear (nếu executor hỗ trợ)
-	if syn and syn.protect_gui then
-		syn.protect_gui(Storage.ScreenGui)
-		Storage.ScreenGui.Parent = Services.CoreGui
-	elseif gethui then
-		Storage.ScreenGui.Parent = gethui()
+	if team.Instance and team.Instance:IsA("Team") then
+		return team.Instance.TeamColor.Color
+	end
+	
+	return nil
+end
+
+local NPCSystem = {}
+
+function NPCSystem.isPlayer(character)
+	if not character or not character:IsA("Model") then return false end
+	if character == Cache.LocalPlayer.Character then return true end
+	local player = Services.Players:GetPlayerFromCharacter(character)
+	return player ~= nil
+end
+
+function NPCSystem.isNPC(character)
+	if not character or not character:IsA("Model") then return false end
+	if NPCSystem.isPlayer(character) then return false end
+	
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local head = character:FindFirstChild("Head")
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	
+	if not humanoid or not head or not hrp or humanoid.Health <= 0 then return false end
+	
+	if CONFIG.AggressiveNPCDetection then 
+		return true
+	end
+	
+	if not CONFIG.EnableTagFilter then
+		return true
+	end
+	
+	local charName = character.Name:lower()
+	for _, tag in pairs(NPCTags) do
+		if charName:find(tag:lower(), 1, true) then return true end
+	end
+	
+	local npcFolders = {"NPCs", "Enemies", "Bots", "Mobs", "Targets", "Enemy", "Hostile",
+		"Monsters", "Zombies", "Creatures", "Characters", "Spawns", "EnemySpawns", "NPCSpawns", "Bosses"}
+	
+	for _, folderName in pairs(npcFolders) do
+		local folder = workspace:FindFirstChild(folderName)
+		if folder and character:IsDescendantOf(folder) then return true end
+	end
+	
+	local npcIndicators = {"NPC", "IsNPC", "IsEnemy", "Hostile"}
+	for _, indicator in pairs(npcIndicators) do
+		local val = character:FindFirstChild(indicator)
+		if val and val:IsA("BoolValue") and val.Value == true then return true end
+	end
+	
+	return false
+end
+
+function NPCSystem.isBoss(character)
+	if not character then return false end
+	
+	local charName = character.Name:lower()
+	if charName:find("boss") or charName:find("miniboss") or charName:find("leader") then
+		return true
+	end
+	
+	if character:GetAttribute("IsBoss") == true then
+		return true
+	end
+	
+	return false
+end
+
+function NPCSystem.findNPCsRecursive(parent)
+	local foundNPCs = {}
+	for _, instance in pairs(parent:GetDescendants()) do
+		if NPCSystem.isNPC(instance) then
+			table.insert(foundNPCs, instance)
+		end
+	end
+	return foundNPCs
+end
+
+local Utils = {}
+
+function Utils.isEnemy(targetPlayer)
+	if not targetPlayer then return true end
+	if not targetPlayer.Character then return true end
+	
+	if not TeamSystem.hasTeamSystem() then
+		return true
+	end
+	
+	return not TeamSystem.isSameTeam(Cache.LocalPlayer, targetPlayer)
+end
+
+function Utils.shouldShowPlayer(targetPlayer)
+	if not CONFIG.EnableTeamCheck then return true end
+	
+	local isEnemyPlayer = Utils.isEnemy(targetPlayer)
+	
+	if CONFIG.ShowEnemyOnly and not isEnemyPlayer then
+		return false
+	end
+	
+	if CONFIG.ShowAlliedOnly and isEnemyPlayer then
+		return false
+	end
+	
+	return true
+end
+
+function Utils.getBoxColor(targetPlayer)
+	if not CONFIG.UseTeamColors then
+		return CONFIG.BoxColor
+	end
+	
+	if CONFIG.UseActualTeamColors then
+		local teamColor = TeamSystem.getPlayerTeamColor(targetPlayer)
+		return teamColor or CONFIG.NoTeamColor
 	else
-		Storage.ScreenGui.Parent = Services.CoreGui
+		local isEnemyPlayer = Utils.isEnemy(targetPlayer)
+		return isEnemyPlayer and CONFIG.EnemyBoxColor or CONFIG.AlliedBoxColor
 	end
 end
 
--- Tạo khung Box mới
-function BoxLogic.createBox(id)
-	local boxObj = {
-		Frame = Instance.new("Frame"),
-		Stroke = Instance.new("UIStroke"),
-		Gradient = Instance.new("UIGradient")
-	}
-	
-	-- Cấu hình Frame
-	boxObj.Frame.Name = "Box_" .. tostring(id)
-	boxObj.Frame.BackgroundTransparency = 1 -- Trong suốt, chỉ hiện viền
-	boxObj.Frame.BackgroundColor3 = Color3.new(1, 1, 1) -- Màu nền trắng để Gradient hoạt động
-	boxObj.Frame.BorderSizePixel = 0
-	boxObj.Frame.Parent = Storage.ScreenGui
-	
-	-- Cấu hình Stroke (Viền)
-	boxObj.Stroke.Thickness = CONFIG.BoxThickness
-	boxObj.Stroke.Color = CONFIG.BoxColor
-	boxObj.Stroke.LineJoinMode = Enum.LineJoinMode.Miter
-	boxObj.Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	boxObj.Stroke.Parent = boxObj.Frame
-	
-	-- Cấu hình Gradient (Ẩn mặc định)
-	boxObj.Gradient.Enabled = false
-	boxObj.Gradient.Parent = boxObj.Frame
-	
-	return boxObj
+function Utils.getNPCBoxColor(npcCharacter)
+	if CONFIG.UseNPCColors then
+		if NPCSystem.isBoss(npcCharacter) then
+			return CONFIG.BossBoxColor
+		else
+			return CONFIG.NPCBoxColor
+		end
+	end
+	return CONFIG.NPCBoxColor
 end
 
--- Lấy màu sắc phù hợp cho mục tiêu
-function BoxLogic.getColor(target, isPlayer)
-	if isPlayer then
-		if CONFIG.UseTeamColors then
-			if CONFIG.UseActualTeamColors then
-				if target.TeamColor then return target.TeamColor.Color end
-				return CONFIG.NoTeamColor
+function Utils.getViewportSize()
+	local camera = Cache.Camera or workspace.CurrentCamera
+	if camera then
+		return camera.ViewportSize
+	end
+	return Vector2.new(1920, 1080)
+end
+
+function Utils.isMobile()
+	return Services.UserInputService.TouchEnabled 
+		and not Services.UserInputService.KeyboardEnabled
+end
+
+local GradientManager = {}
+
+function GradientManager.start()
+	GradientManager.stop()
+	
+	if not CONFIG.EnableGradientAnimation then return end
+	
+	EspStorage.RotationOffset = 0
+	
+	EspStorage.GradientConnection = Services.RunService.RenderStepped:Connect(function(deltaTime)
+		if not CONFIG.EnableGradientAnimation then
+			GradientManager.stop()
+			return
+		end
+		
+		EspStorage.RotationOffset = (EspStorage.RotationOffset + deltaTime * CONFIG.GradientAnimationSpeed * 100) % 360
+		
+		for _, espData in pairs(EspStorage.Boxes) do
+			if espData and espData.UIGradient then
+				espData.UIGradient.Rotation = (CONFIG.GradientRotation + EspStorage.RotationOffset) % 360
+			end
+		end
+	end)
+end
+
+function GradientManager.stop()
+	if EspStorage.GradientConnection then
+		EspStorage.GradientConnection:Disconnect()
+		EspStorage.GradientConnection = nil
+	end
+	
+	for _, espData in pairs(EspStorage.Boxes) do
+		if espData and espData.UIGradient then
+			espData.UIGradient.Rotation = CONFIG.GradientRotation
+		end
+	end
+end
+
+function GradientManager.updateAll()
+	for _, espData in pairs(EspStorage.Boxes) do
+		if espData and espData.UIGradient then
+			espData.UIGradient.Color = ColorSequence.new{
+				ColorSequenceKeypoint.new(0.000, CONFIG.GradientColor1),
+				ColorSequenceKeypoint.new(1.000, CONFIG.GradientColor2)
+			}
+			if espData.BoxGradient then
+				espData.BoxGradient.BackgroundTransparency = CONFIG.GradientTransparency
+			end
+		end
+	end
+end
+
+local BoxManager = {}
+
+function BoxManager.updateAllThickness()
+	for _, espData in pairs(EspStorage.Boxes) do
+		if espData and espData.UIStroke then
+			espData.UIStroke.Thickness = CONFIG.BoxThickness
+		end
+	end
+end
+
+function BoxManager.create(targetPlayer)
+	if EspStorage.Boxes[targetPlayer] then return end
+	
+	local boxFrame = Instance.new("Frame")
+	boxFrame.Name = "Box_" .. targetPlayer.Name
+	boxFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	boxFrame.BackgroundTransparency = 1
+	boxFrame.BorderSizePixel = 0
+	boxFrame.Parent = EspStorage.MainScreenGui
+	
+	local uiStroke = Instance.new("UIStroke")
+	uiStroke.Thickness = CONFIG.BoxThickness
+	uiStroke.Color = CONFIG.BoxColor
+	uiStroke.LineJoinMode = Enum.LineJoinMode.Miter
+	uiStroke.Parent = boxFrame
+	
+	local gradientFrame = Instance.new("Frame")
+	gradientFrame.Name = "BoxGradient"
+	gradientFrame.BorderSizePixel = 0
+	gradientFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	gradientFrame.Size = UDim2.new(1, 0, 1, 0)
+	gradientFrame.BackgroundTransparency = CONFIG.GradientTransparency
+	gradientFrame.Visible = CONFIG.ShowGradient
+	gradientFrame.Parent = boxFrame
+	
+	local uiGradient = Instance.new("UIGradient")
+	uiGradient.Rotation = CONFIG.GradientRotation
+	uiGradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0.000, CONFIG.GradientColor1),
+		ColorSequenceKeypoint.new(1.000, CONFIG.GradientColor2)
+	}
+	uiGradient.Parent = gradientFrame
+	
+	EspStorage.Boxes[targetPlayer] = {
+		Box = boxFrame,
+		UIStroke = uiStroke,
+		BoxGradient = gradientFrame,
+		UIGradient = uiGradient,
+		IsNPC = false
+	}
+	
+	return EspStorage.Boxes[targetPlayer]
+end
+
+function BoxManager.createNPC(npcCharacter)
+	if EspStorage.Boxes[npcCharacter] then return end
+	
+	local boxFrame = Instance.new("Frame")
+	boxFrame.Name = "NPCBox_" .. npcCharacter.Name
+	boxFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	boxFrame.BackgroundTransparency = 1
+	boxFrame.BorderSizePixel = 0
+	boxFrame.Parent = EspStorage.MainScreenGui
+	
+	local uiStroke = Instance.new("UIStroke")
+	uiStroke.Thickness = CONFIG.BoxThickness
+	uiStroke.Color = CONFIG.NPCBoxColor
+	uiStroke.LineJoinMode = Enum.LineJoinMode.Miter
+	uiStroke.Parent = boxFrame
+	
+	local gradientFrame = Instance.new("Frame")
+	gradientFrame.Name = "BoxGradient"
+	gradientFrame.BorderSizePixel = 0
+	gradientFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	gradientFrame.Size = UDim2.new(1, 0, 1, 0)
+	gradientFrame.BackgroundTransparency = CONFIG.GradientTransparency
+	gradientFrame.Visible = CONFIG.ShowGradient
+	gradientFrame.Parent = boxFrame
+	
+	local uiGradient = Instance.new("UIGradient")
+	uiGradient.Rotation = CONFIG.GradientRotation
+	uiGradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0.000, CONFIG.GradientColor1),
+		ColorSequenceKeypoint.new(1.000, CONFIG.GradientColor2)
+	}
+	uiGradient.Parent = gradientFrame
+	
+	EspStorage.Boxes[npcCharacter] = {
+		Box = boxFrame,
+		UIStroke = uiStroke,
+		BoxGradient = gradientFrame,
+		UIGradient = uiGradient,
+		IsNPC = true
+	}
+	
+	return EspStorage.Boxes[npcCharacter]
+end
+
+function BoxManager.update(targetPlayer, espData)
+	if not espData or not espData.Box then return end
+	
+	local character = targetPlayer.Character or targetPlayer
+	if not character or character.Parent == nil then
+		espData.Box.Visible = false
+		return
+	end
+	
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart then
+		espData.Box.Visible = false
+		return
+	end
+	
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		espData.Box.Visible = false
+		return
+	end
+	
+	if not espData.IsNPC and CONFIG.EnableTeamCheck then
+		local isEnemyPlayer = Utils.isEnemy(targetPlayer)
+		
+		if CONFIG.ShowEnemyOnly and not isEnemyPlayer then
+			espData.Box.Visible = false
+			return
+		end
+		
+		if CONFIG.ShowAlliedOnly and isEnemyPlayer then
+			espData.Box.Visible = false
+			return
+		end
+	end
+	
+	local charSize = character:GetExtentsSize()
+	local boxHeight = charSize.Y * 0.8
+	local boxWidth = charSize.X * 0.8
+	
+	local camera = Cache.Camera or workspace.CurrentCamera
+	local viewportSize = Utils.getViewportSize()
+	
+	local headTop = humanoidRootPart.Position + Vector3.new(0, charSize.Y / 2, 0)
+	local feetBottom = humanoidRootPart.Position - Vector3.new(0, charSize.Y / 1.4, 0)
+	
+	local headScreenPos, headOnScreen = camera:WorldToViewportPoint(headTop)
+	local feetScreenPos, feetOnScreen = camera:WorldToViewportPoint(feetBottom)
+	
+	local screenX = (headScreenPos.X + feetScreenPos.X) / 2
+	local screenYTop = headScreenPos.Y
+	
+	local displayHeight = math.abs(feetScreenPos.Y - headScreenPos.Y)
+	local displayWidth = displayHeight * (boxWidth / boxHeight)
+	
+	espData.Box.Size = UDim2.new(0, displayWidth, 0, displayHeight)
+	espData.Box.Position = UDim2.new(0, screenX - displayWidth / 2, 0, screenYTop)
+	
+	if espData.UIStroke then
+		espData.UIStroke.Thickness = CONFIG.BoxThickness
+	end
+	
+	if espData.BoxGradient then
+		espData.BoxGradient.Visible = CONFIG.ShowGradient
+		espData.BoxGradient.BackgroundTransparency = CONFIG.GradientTransparency
+	end
+	
+	if espData.UIGradient then
+		espData.UIGradient.Color = ColorSequence.new{
+			ColorSequenceKeypoint.new(0.000, CONFIG.GradientColor1),
+			ColorSequenceKeypoint.new(1.000, CONFIG.GradientColor2)
+		}
+		if not CONFIG.EnableGradientAnimation then
+			espData.UIGradient.Rotation = CONFIG.GradientRotation
+		end
+	end
+	
+	local boxColor
+	if espData.IsNPC then
+		boxColor = Utils.getNPCBoxColor(character)
+	else
+		boxColor = Utils.getBoxColor(targetPlayer)
+	end
+	
+	if espData.UIStroke then
+		espData.UIStroke.Color = boxColor
+	end
+	
+	local isInFront = headScreenPos.Z > 0
+	local isInViewportX = screenX > -displayWidth and screenX < viewportSize.X + displayWidth
+	local isInViewportY = screenYTop > -displayHeight and screenYTop < viewportSize.Y + displayHeight
+	
+	espData.Box.Visible = isInFront and isInViewportX and isInViewportY
+end
+
+function BoxManager.remove(targetPlayer)
+	local espData = EspStorage.Boxes[targetPlayer]
+	if espData then
+		if espData.Box then
+			espData.Box:Destroy()
+		end
+		EspStorage.Boxes[targetPlayer] = nil
+	end
+end
+
+function BoxManager.updateAll()
+	for targetPlayer, espData in pairs(EspStorage.Boxes) do
+		if targetPlayer and targetPlayer.Parent and espData then
+			if targetPlayer == Cache.LocalPlayer then
+				continue
+			end
+			
+			if espData.IsNPC then
+				if CONFIG.Enabled and (CONFIG.Mode == "NPC" or CONFIG.Mode == "Both") then
+					BoxManager.update(targetPlayer, espData)
+				else
+					espData.Box.Visible = false
+				end
 			else
-				return TeamLogic.isEnemy(target) and CONFIG.EnemyBoxColor or CONFIG.AlliedBoxColor
+				if CONFIG.Enabled and (CONFIG.Mode == "Player" or CONFIG.Mode == "Both") and Utils.shouldShowPlayer(targetPlayer) then
+					BoxManager.update(targetPlayer, espData)
+				else
+					espData.Box.Visible = false
+				end
 			end
 		else
-			return CONFIG.BoxColor
+			BoxManager.remove(targetPlayer)
 		end
-	else
-		-- Logic màu cho NPC
-		return CONFIG.NPCBoxColor
 	end
 end
 
--- Tính toán vị trí Box (Hỗ trợ PC & Mobile chuẩn xác)
-function BoxLogic.calculateBox(model)
-	local cf, size = model:GetBoundingBox()
-	local corners = {
-		cf * CFrame.new(size.X/2, size.Y/2, size.Z/2),
-		cf * CFrame.new(-size.X/2, size.Y/2, size.Z/2),
-		cf * CFrame.new(size.X/2, -size.Y/2, size.Z/2),
-		cf * CFrame.new(-size.X/2, -size.Y/2, size.Z/2),
-		cf * CFrame.new(size.X/2, size.Y/2, -size.Z/2),
-		cf * CFrame.new(-size.X/2, size.Y/2, -size.Z/2),
-		cf * CFrame.new(size.X/2, -size.Y/2, -size.Z/2),
-		cf * CFrame.new(-size.X/2, -size.Y/2, -size.Z/2)
-	}
-	
-	local minX, maxX, minY, maxY = math.huge, -math.huge, math.huge, -math.huge
-	local onScreen = false
-	
-	for _, corner in ipairs(corners) do
-		local screenPos, visible = Camera:WorldToViewportPoint(corner.Position)
-		if visible then onScreen = true end
-		
-		if screenPos.X < minX then minX = screenPos.X end
-		if screenPos.X > maxX then maxX = screenPos.X end
-		if screenPos.Y < minY then minY = screenPos.Y end
-		if screenPos.Y > maxY then maxY = screenPos.Y end
-	end
-	
-	-- Nếu đối tượng ở sau lưng hoặc quá xa
-	if not onScreen then return nil end
-	
-	return {
-		Position = UDim2.new(0, minX, 0, minY),
-		Size = UDim2.new(0, maxX - minX, 0, maxY - minY)
-	}
-end
+local NPCMode = {}
 
--- Cập nhật một Box cụ thể
-function BoxLogic.updateBox(id, model, isPlayer)
-	local boxData = Storage.ActiveBoxes[id]
-	if not boxData then
-		boxData = BoxLogic.createBox(id)
-		Storage.ActiveBoxes[id] = boxData
+function NPCMode.scanForNPCs()
+	local foundNPCs = NPCSystem.findNPCsRecursive(workspace)
+	
+	local foundSet = {}
+	for _, npc in pairs(foundNPCs) do
+		foundSet[npc] = true
 	end
 	
-	-- Kiểm tra model tồn tại
-	if not model or not model.Parent then
-		BoxLogic.removeBox(id)
-		return
-	end
-	
-	local humanoid = model:FindFirstChildOfClass("Humanoid")
-	if not humanoid or humanoid.Health <= 0 then
-		boxData.Frame.Visible = false
-		return
-	end
-	
-	-- Logic hiển thị theo config
-	local shouldShow = CONFIG.Enabled
-	
-	if isPlayer then
-		if CONFIG.EnableTeamCheck then
-			local isEnemy = TeamLogic.isEnemy(Services.Players:GetPlayerFromCharacter(model))
-			if CONFIG.ShowEnemyOnly and not isEnemy then shouldShow = false end
-			if CONFIG.ShowAlliedOnly and isEnemy then shouldShow = false end
+	for npc in pairs(EspStorage.TrackedNPCs) do
+		if not foundSet[npc] or not npc.Parent then
+			BoxManager.remove(npc)
+			EspStorage.TrackedNPCs[npc] = nil
 		end
 	end
 	
-	if not shouldShow then
-		boxData.Frame.Visible = false
-		return
-	end
-	
-	-- Tính toán vị trí
-	local boxMetrics = BoxLogic.calculateBox(model)
-	if not boxMetrics then
-		boxData.Frame.Visible = false
-		return
-	end
-	
-	-- Cập nhật thuộc tính Visual
-	local color
-	if isPlayer then
-		local player = Services.Players:GetPlayerFromCharacter(model)
-		color = BoxLogic.getColor(player, true)
-	else
-		color = BoxLogic.getColor(model, false)
-	end
-	
-	-- Apply thông số vào Frame
-	boxData.Frame.Position = boxMetrics.Position
-	boxData.Frame.Size = boxMetrics.Size
-	boxData.Frame.Visible = true
-	
-	-- Apply Stroke
-	boxData.Stroke.Thickness = CONFIG.BoxThickness
-	
-	-- Gradient Handling
-	if CONFIG.ShowGradient then
-		boxData.Stroke.Enabled = false -- Tắt stroke thường
-		boxData.Frame.BorderSizePixel = CONFIG.BoxThickness -- Dùng border của frame để hiện gradient (Workaround)
-		-- Lưu ý: UIStroke không hỗ trợ UIGradient trực tiếp tốt trên viền rỗng, 
-		-- nên ta dùng BackgroundTransparency kết hợp hoặc logic khác.
-		-- Cách tốt nhất cho Box Gradient: Frame nền mỏng + UIGradient
-		
-		boxData.Frame.BackgroundTransparency = 0 -- Hiện nền để áp dụng Gradient vào viền giả
-		-- Logic Box Gradient phức tạp hơn với UIStroke, ở đây dùng màu Stroke cơ bản nếu tắt Gradient
-		-- Nếu bật Gradient, ta chuyển màu Stroke:
-		boxData.Stroke.Enabled = true
-		boxData.Stroke.Color = Color3.new(1,1,1) -- Trắng để ăn màu Gradient
-		boxData.Gradient.Enabled = true
-		boxData.Gradient.Color = ColorSequence.new{
-			ColorSequenceKeypoint.new(0.0, CONFIG.GradientColor1),
-			ColorSequenceKeypoint.new(1.0, CONFIG.GradientColor2)
-		}
-		boxData.Gradient.Rotation = CONFIG.GradientRotation + Storage.GradientRotation
-	else
-		boxData.Stroke.Enabled = true
-		boxData.Stroke.Color = color
-		boxData.Gradient.Enabled = false
-		boxData.Frame.BackgroundTransparency = 1
-	end
-end
-
-function BoxLogic.removeBox(id)
-	if Storage.ActiveBoxes[id] then
-		if Storage.ActiveBoxes[id].Frame then
-			Storage.ActiveBoxes[id].Frame:Destroy()
+	for _, npc in pairs(foundNPCs) do
+		if not EspStorage.TrackedNPCs[npc] then
+			EspStorage.TrackedNPCs[npc] = true
+			BoxManager.createNPC(npc)
 		end
-		Storage.ActiveBoxes[id] = nil
 	end
 end
 
-function BoxLogic.clearAll()
-	for id, _ in pairs(Storage.ActiveBoxes) do
-		BoxLogic.removeBox(id)
-	end
-	Storage.TrackedNPCs = {}
-end
-
---═══════════════════════════════════════════════════════════════════════════════
---  VÒNG LẶP CHÍNH (MAIN LOOP)
---═══════════════════════════════════════════════════════════════════════════════
-
-local Core = {}
-
-function Core.updateAll()
-	-- Xoay gradient nếu bật animation
-	if CONFIG.EnableGradientAnimation and CONFIG.ShowGradient then
-		Storage.GradientRotation = (Storage.GradientRotation + CONFIG.GradientAnimationSpeed * 2) % 360
-	end
-
-	if CONFIG.Mode == "Player" then
-		for _, player in ipairs(Services.Players:GetPlayers()) do
-			if player ~= LocalPlayer and player.Character then
-				BoxLogic.updateBox(player.UserId, player.Character, true)
+function NPCMode.initialize()
+	NPCMode.scanForNPCs()
+	
+	if not EspStorage.ScanConnection then
+		EspStorage.ScanConnection = Services.RunService.Heartbeat:Connect(function()
+			if CONFIG.Enabled and (CONFIG.Mode == "NPC" or CONFIG.Mode == "Both") then
+				NPCMode.scanForNPCs()
 			end
+		end)
+	end
+end
+
+function NPCMode.cleanup()
+	local npcsToRemove = {}
+	for target in pairs(EspStorage.Boxes) do
+		if target:IsA("Model") and NPCSystem.isNPC(target) then
+			table.insert(npcsToRemove, target)
 		end
-	elseif CONFIG.Mode == "NPC" then
-		for npcModel, _ in pairs(Storage.TrackedNPCs) do
-			if npcModel.Parent then
-				BoxLogic.updateBox(npcModel, npcModel, false)
-			else
-				Storage.TrackedNPCs[npcModel] = nil
-				BoxLogic.removeBox(npcModel)
+	end
+	
+	for _, npc in pairs(npcsToRemove) do
+		BoxManager.remove(npc)
+	end
+	
+	EspStorage.TrackedNPCs = {}
+end
+
+local EventHandler = {}
+
+function EventHandler.onPlayerAdded(newPlayer)
+	if newPlayer ~= Cache.LocalPlayer then
+		if Utils.shouldShowPlayer(newPlayer) then
+			task.wait(0.5)
+			if CONFIG.Mode == "Player" or CONFIG.Mode == "Both" then
+				BoxManager.create(newPlayer)
 			end
 		end
 	end
 end
 
--- Quét NPC định kỳ (Không chạy mỗi frame để đỡ lag)
-function Core.scanNPCs()
-	if CONFIG.Mode ~= "NPC" then return end
-	
-	-- Quét workspace
-	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("Model") and not Storage.TrackedNPCs[obj] then
-			if NPCLogic.isNPC(obj) then
-				Storage.TrackedNPCs[obj] = true
-			end
-		end
-	end
+function EventHandler.onPlayerRemoving(leavingPlayer)
+	BoxManager.remove(leavingPlayer)
 end
 
-function Core.start()
-	BoxLogic.initGui()
+local function initialize()
+	initializeScreenGui()
 	
-	-- Render Loop
-	Storage.Connections.Render = Services.RunService.RenderStepped:Connect(Core.updateAll)
+	Services.Players.PlayerAdded:Connect(EventHandler.onPlayerAdded)
+	Services.Players.PlayerRemoving:Connect(EventHandler.onPlayerRemoving)
 	
-	-- NPC Scan Loop (1 giây 1 lần)
-	task.spawn(function()
-		while task.wait(1) do
-			if CONFIG.Enabled and CONFIG.Mode == "NPC" then
-				Core.scanNPCs()
-			end
+	for _, otherPlayer in pairs(Services.Players:GetPlayers()) do
+		if otherPlayer ~= Cache.LocalPlayer then
+			EventHandler.onPlayerAdded(otherPlayer)
 		end
+	end
+	
+	NPCMode.initialize()
+	
+	Services.RunService.RenderStepped:Connect(function()
+		BoxManager.updateAll()
 	end)
 	
-	-- Player Removal
-	Services.Players.PlayerRemoving:Connect(function(player)
-		BoxLogic.removeBox(player.UserId)
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+		Cache.Camera = workspace.CurrentCamera
 	end)
 end
 
---═══════════════════════════════════════════════════════════════════════════════
---  PUBLIC API MODULE
---═══════════════════════════════════════════════════════════════════════════════
+initialize()
 
 local BoxAPIModule = {}
 
@@ -483,9 +781,12 @@ function BoxAPIModule:UpdateConfig(newConfig)
 		end
 	end
 	
-	-- Nếu đổi chế độ -> Xóa sạch box cũ để vẽ lại
-	if newConfig.Mode then
-		BoxLogic.clearAll()
+	if newConfig.EnableGradientAnimation ~= nil then
+		if newConfig.EnableGradientAnimation then
+			GradientManager.start()
+		else
+			GradientManager.stop()
+		end
 	end
 end
 
@@ -495,22 +796,45 @@ end
 
 function BoxAPIModule:Toggle(state)
 	CONFIG.Enabled = state
-	if not state then
-		BoxLogic.clearAll()
+end
+
+function BoxAPIModule:SetMode(mode)
+	if mode == "Player" or mode == "NPC" or mode == "Both" then
+		CONFIG.Mode = mode
 	end
+end
+
+function BoxAPIModule:GetMode()
+	return CONFIG.Mode
 end
 
 function BoxAPIModule:Destroy()
-	for _, conn in pairs(Storage.Connections) do
-		conn:Disconnect()
+	GradientManager.stop()
+	
+	if EspStorage.ScanConnection then
+		EspStorage.ScanConnection:Disconnect()
+		EspStorage.ScanConnection = nil
 	end
-	if Storage.ScreenGui then
-		Storage.ScreenGui:Destroy()
+	
+	for targetPlayer in pairs(EspStorage.Boxes) do
+		BoxManager.remove(targetPlayer)
 	end
-	BoxLogic.clearAll()
+	
+	if EspStorage.MainScreenGui then
+		EspStorage.MainScreenGui:Destroy()
+	end
 end
 
--- Khởi động hệ thống
-Core.start()
+function BoxAPIModule:GetTrackedTargets()
+	local targets = {}
+	for target in pairs(EspStorage.Boxes) do
+		table.insert(targets, target)
+	end
+	return targets
+end
+
+BoxAPIModule.getTeamsService = TeamSystem.getTeamsService
+BoxAPIModule.isSameTeam = TeamSystem.isSameTeam
+BoxAPIModule.getPlayerTeam = TeamSystem.getPlayerTeam
 
 return BoxAPIModule
