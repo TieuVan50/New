@@ -642,57 +642,39 @@ local function scanForNPCs()
 	end
 end
 
-
 local function switchMode(newMode)
 	if newMode == CONFIG.Mode then return end
-
-	-- ===== PLAYER MODE =====
+	
 	if newMode == "Player" then
-		-- Remove NPC health bars
+		-- Clean up NPC bars
 		local npcsToRemove = {}
 		for target in pairs(healthBars) do
 			if not target:IsA("Player") then
 				table.insert(npcsToRemove, target)
 			end
 		end
-		for _, npc in ipairs(npcsToRemove) do
+		for _, npc in pairs(npcsToRemove) do
 			removeHealthBar(npc)
 		end
-
 		trackedNPCs = {}
-
+		
 		if scanConnection then
 			scanConnection:Disconnect()
 			scanConnection = nil
 		end
-
-	-- ===== NPC MODE =====
-	elseif newMode == "NPC" then
-		-- Remove Player health bars (except self)
+	else
+		-- Clean up player bars (except self)
 		local playersToRemove = {}
 		for target in pairs(healthBars) do
 			if target:IsA("Player") and target ~= player then
 				table.insert(playersToRemove, target)
 			end
 		end
-		for _, plr in ipairs(playersToRemove) do
-			removeHealthBar(plr)
+		for _, playerTarget in pairs(playersToRemove) do
+			removeHealthBar(playerTarget)
 		end
-
-		scanForNPCs()
-		if not scanConnection then
-			scanConnection = RunService.Heartbeat:Connect(function()
-				if CONFIG.NPCEnabled then
-					scanForNPCs()
-				end
-			end)
-		end
-
-	-- ===== BOTH MODE =====
-	elseif newMode == "Both" then
-		-- Không cleanup gì hết → giữ cả Player + NPC
-
-		-- Init NPC scanning
+		
+		-- Start NPC scanning
 		scanForNPCs()
 		if not scanConnection then
 			scanConnection = RunService.Heartbeat:Connect(function()
@@ -702,7 +684,7 @@ local function switchMode(newMode)
 			end)
 		end
 	end
-
+	
 	CONFIG.Mode = newMode
 end
 
@@ -803,10 +785,10 @@ function HealthBarESPAPI:ToggleNPC(state)
 end
 
 function HealthBarESPAPI:SetMode(mode)
-	if mode == "Player" or mode == "NPC" then
+	if mode == "Player" or mode == "NPC" or mode == "Both" then
 		switchMode(mode)
 	else
-		warn("Invalid mode: " .. tostring(mode) .. ". Use 'Player' or 'NPC'")
+		warn("Invalid mode: " .. tostring(mode) .. ". Use 'Player', 'NPC', or 'Both'")
 	end
 end
 
@@ -816,6 +798,54 @@ end
 
 function HealthBarESPAPI:GetTrackedNPCs()
 	local npcList = {}
+
+local function switchMode(newMode)
+	if newMode == CONFIG.Mode then return end
+	
+	if newMode == "Player" then
+		-- Clean up NPC bars
+		local npcsToRemove = {}
+		for target in pairs(healthBars) do
+			if not target:IsA("Player") then
+				table.insert(npcsToRemove, target)
+			end
+		end
+		for _, npc in pairs(npcsToRemove) do
+			removeHealthBar(npc)
+		end
+		trackedNPCs = {}
+		
+		if scanConnection then
+			scanConnection:Disconnect()
+			scanConnection = nil
+		end
+	elseif newMode == "NPC" or newMode == "Both" then
+		-- Clean up player bars (except self)
+		local playersToRemove = {}
+		for target in pairs(healthBars) do
+			if target:IsA("Player") and target ~= player then
+				table.insert(playersToRemove, target)
+			end
+		end
+		for _, playerTarget in pairs(playersToRemove) do
+			removeHealthBar(playerTarget)
+		end
+		
+		-- Start NPC scanning
+		scanForNPCs()
+		if not scanConnection then
+			scanConnection = RunService.Heartbeat:Connect(function()
+				if CONFIG.NPCEnabled then
+					scanForNPCs()
+				end
+			end)
+		end
+	end
+	
+	CONFIG.Mode = newMode
+end
+
+
 	for npc in pairs(trackedNPCs) do
 		if npc.Parent then
 			table.insert(npcList, npc)
