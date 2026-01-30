@@ -1,3 +1,11 @@
+return function(EspPage, ChamsAPI)
+local ChamsSection = EspPage:Section({
+Name = "Chams ESP",
+Description = "Làm nổi bật người chơi & NPC qua tường",
+Icon = "10709782230",
+Side = 2
+})
+
 --=== CHẾ ĐỘ HOẠT ĐỘNG ===--
 
 ChamsSection:Dropdown({
