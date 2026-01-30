@@ -653,43 +653,9 @@ function NPCMode.cleanup()
 	EspStorage.TrackedNPCs = {}
 end
 
---═══════════════════════════════════════════════════════════════════════════════
---  MODE SWITCHING
---═══════════════════════════════════════════════════════════════════════════════
 
-local function switchMode(newMode)
-	if newMode == GLOBAL_CONFIG.Mode then return end
 
-	-- Clear all ESP boxes
-	for target in pairs(EspStorage.Boxes) do
-		BoxManager.remove(target)
-	end
 
-	-- Cleanup trước cho chắc
-	PlayerMode.cleanup()
-	NPCMode.cleanup()
-
-	GLOBAL_CONFIG.Mode = newMode
-
-	if newMode == "Player" then
-		PlayerMode.initialize()
-
-	elseif newMode == "NPC" then
-		NPCMode.initialize()
-
-	elseif newMode == "Both" then
-		PlayerMode.initialize()
-		NPCMode.initialize()
-	end
-end
-
---═══════════════════════════════════════════════════════════════════════════════
---  INITIALIZATION
---═══════════════════════════════════════════════════════════════════════════════
-
-local function initialize()
-	initializeScreenGui()
-	PlayerMode.initialize()
 	
 	EspStorage.RenderConnection = Services.RunService.RenderStepped:Connect(function()
 		BoxManager.updateAll()
@@ -700,15 +666,7 @@ local function initialize()
 	end)
 end
 
-initialize()
 
---═══════════════════════════════════════════════════════════════════════════════
---  PUBLIC API
---═══════════════════════════════════════════════════════════════════════════════
-
-local UnifiedESPModule = {}
-
-function UnifiedESPModule:UpdateConfig(newConfig)
 	for key, value in pairs(newConfig) do
 		if GLOBAL_CONFIG[key] ~= nil then
 			GLOBAL_CONFIG[key] = value
@@ -730,16 +688,34 @@ function UnifiedESPModule:ToggleNPC(state)
 		NPCMode.cleanup()
 	else
 		NPCMode.initialize()
+local function switchMode(newMode)
+	if newMode == GLOBAL_CONFIG.Mode then return end
+	
+	for target in pairs(EspStorage.Boxes) do
+		BoxManager.remove(target)
+	end
+	
+	GLOBAL_CONFIG.Mode = newMode
+	
+	if newMode == "Player" then
+		PlayerMode.cleanup()
+		NPCMode.cleanup()
+		PlayerMode.initialize()
+	elseif newMode == "NPC" then
+		PlayerMode.cleanup()
+		NPCMode.cleanup()
+		NPCMode.initialize()
+	elseif newMode == "Both" then
+		PlayerMode.cleanup()
+		NPCMode.cleanup()
+		PlayerMode.initialize()
+		NPCMode.initialize()
+	end
+end
 	end
 end
 
-function UnifiedESPModule:SetMode(mode)
-	if mode == "Player" or mode == "NPC" then
-		switchMode(mode)
-	else
-		warn("Invalid mode: " .. tostring(mode) .. ". Use 'Player' or 'NPC'")
-	end
-end
+
 
 function UnifiedESPModule:GetMode()
 	return GLOBAL_CONFIG.Mode
