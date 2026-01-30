@@ -7,7 +7,7 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 --=============================================================================
--- NPC TAGS LIST
+-- NPC TAGS LIST (EXPANDED - GIỐNG CHAMS)
 --=============================================================================
 
 local NPCTags = {
@@ -20,10 +20,19 @@ local NPCTags = {
 	"Boss", "boss", "MiniBoss", "miniboss", "Guard", "guard",
 	"Guardian", "guardian", "Soldier", "soldier", "Warrior", "warrior",
 	"Fighter", "fighter", "Target", "target", "Dummy", "dummy",
+	"Dummies", "dummies", "Skeleton", "skeleton", "Orc", "orc",
+	"Goblin", "goblin", "Robot", "robot", "Drone", "drone",
+	"Android", "android", "Cyborg", "cyborg", "Automaton", "automaton",
+	"Servant", "servant", "Minion", "minion", "Slave", "slave", "Pawn", "pawn",
+	"AI", "ai", "A.I.", "Char", "char", "Character", "character",
+	"Model", "model", "Event", "event", "Special", "special",
+	"Angel", "angel", "Archangel", "archangel", "Crystal", "crystal",
+	"Demon", "demon", "Elf", "elf", "Ghost", "ghost", "Santa", "santa",
+	"Slime", "slime", "Vampire", "vampire", "Void Slime", "void slime",
 }
 
 local CONFIG = {
-	-- Mode (Player/NPC)
+	-- Mode (Player/NPC) - GIỐNG CHAMS
 	Mode = "Player",
 	
 	HealthBarColor = Color3.fromRGB(180, 0, 255),
@@ -36,6 +45,10 @@ local CONFIG = {
 	
 	Enabled = false,
 	ToggleKey = Enum.KeyCode.E,
+	
+	-- Distance
+	MaxDistance = 10000,
+	NPCMaxDistance = 10000,
 	
 	EnableTeamCheck = false,
 	ShowEnemyOnly = false,
@@ -56,7 +69,8 @@ local CONFIG = {
 	HealFlashColor = Color3.fromRGB(0, 255, 100),
 	FlashDuration = 0.15,
 	
-	-- NPC Specific Config
+	-- NPC Specific Config (GIỐNG CHAMS)
+	NPCEnabled = false,
 	EnableTagFilter = true,
 	AggressiveNPCDetection = false,
 	UseNPCColors = false,
@@ -76,19 +90,21 @@ local trackedNPCs = {}
 local scanConnection = nil
 
 --=============================================================================
--- NPC SYSTEM
+-- NPC SYSTEM (GIỐNG CHAMS - ĐẦY ĐỦ)
 --=============================================================================
 
-local function isPlayer(character)
+local NPCSystem = {}
+
+function NPCSystem.isPlayer(character)
 	if not character or not character:IsA("Model") then return false end
 	if character == player.Character then return true end
 	local targetPlayer = Players:GetPlayerFromCharacter(character)
 	return targetPlayer ~= nil
 end
 
-local function isNPC(character)
+function NPCSystem.isNPC(character)
 	if not character or not character:IsA("Model") then return false end
-	if isPlayer(character) then return false end
+	if NPCSystem.isPlayer(character) then return false end
 	
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local head = character:FindFirstChild("Head")
@@ -100,50 +116,51 @@ local function isNPC(character)
 		return true
 	end
 	
-	if not CONFIG.EnableTagFilter then
-		return true
+	if CONFIG.EnableTagFilter then
+		for _, tag in ipairs(NPCTags) do
+			if string.find(character.Name, tag) then
+				return true
+			end
+		end
+		return false
 	end
 	
-	local charName = character.Name:lower()
-	for _, tag in pairs(NPCTags) do
-		if charName:find(tag:lower(), 1, true) then return true end
+	return true
+end
+
+function NPCSystem.isBoss(npc)
+	if not npc then return false end
+	
+	local isBossTag = function(str)
+		local str_lower = string.lower(str)
+		return string.find(str_lower, "boss") or string.find(str_lower, "miniboss") or string.find(str_lower, "guardian")
 	end
 	
-	local npcFolders = {"NPCs", "Enemies", "Bots", "Mobs", "Targets", "Enemy", "Hostile",
-		"Monsters", "Zombies", "Creatures", "Characters", "Spawns", "EnemySpawns", "NPCSpawns", "Bosses"}
+	if isBossTag(npc.Name) then return true end
 	
-	for _, folderName in pairs(npcFolders) do
-		local folder = workspace:FindFirstChild(folderName)
-		if folder and character:IsDescendantOf(folder) then return true end
-	end
-	
-	local npcIndicators = {"NPC", "IsNPC", "IsEnemy", "Hostile"}
-	for _, indicator in pairs(npcIndicators) do
-		local val = character:FindFirstChild(indicator)
-		if val and val:IsA("BoolValue") and val.Value == true then return true end
-	end
+	local humanoid = npc:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.MaxHealth > 100 then return true end
 	
 	return false
 end
 
-local function isBoss(character)
-	if not character then return false end
-	
-	local charName = character.Name:lower()
-	if charName:find("boss") or charName:find("miniboss") or charName:find("leader") then
-		return true
-	end
-	
-	return false
-end
-
-local function findNPCsRecursive(parent)
+function NPCSystem.findNPCsRecursive(parent)
 	local foundNPCs = {}
-	for _, instance in pairs(parent:GetDescendants()) do
-		if isNPC(instance) then
-			table.insert(foundNPCs, instance)
+	
+	local function scan(obj)
+		if obj:IsA("Model") and NPCSystem.isNPC(obj) then
+			table.insert(foundNPCs, obj)
+		end
+		
+		local success, children = pcall(function() return obj:GetChildren() end)
+		if success then
+			for _, child in pairs(children) do
+				scan(child)
+			end
 		end
 	end
+	
+	scan(parent)
 	return foundNPCs
 end
 
@@ -185,6 +202,10 @@ local function shouldShowPlayer(targetPlayer)
 	if CONFIG.ShowEnemyOnly and not isEnemyPlayer then return false end
 	if CONFIG.ShowAlliedOnly and isEnemyPlayer then return false end
 	return true
+end
+
+local function getDistance(position)
+	return (position - camera.CFrame.p).Magnitude
 end
 
 local function getBoxBounds(target)
@@ -306,46 +327,26 @@ local function animateHealthBar(barData, targetPercent, targetColor, isDamage)
 				trailTween:Play()
 			end
 		end)
-	elseif barData.DamageTrail then
-		barData.DamageTrail.Size = UDim2.new(1, 0, targetPercent, 0)
-		barData.DamageTrail.Position = UDim2.new(0, 0, 1 - targetPercent, 0)
-	end
-end
-
-local function getHealthGradientColor(healthPercent)
-	if healthPercent > 0.5 then
-		local t = (healthPercent - 0.5) * 2
-		return Color3.fromRGB(
-			math.floor(255 * (1 - t)),
-			255,
-			0
-		)
-	else
-		local t = healthPercent * 2
-		return Color3.fromRGB(
-			255,
-			math.floor(255 * t),
-			0
-		)
 	end
 end
 
 local function getBarColor(targetPlayer, healthPercent, isSelf)
-	-- Nếu là NPC
-	if not targetPlayer:IsA("Player") then
+	-- NPC Color Selection
+	if targetPlayer and not targetPlayer:IsA("Player") then
+		-- Nó là NPC
 		if CONFIG.UseNPCColors then
-			if isBoss(targetPlayer) then
+			if NPCSystem.isBoss(targetPlayer) then
 				return CONFIG.BossNPCColor
 			else
 				return CONFIG.StandardNPCColor
 			end
-		else
-			return getHealthGradientColor(healthPercent)
 		end
+		return CONFIG.HealthBarColor
 	end
 	
+	-- Player Color Selection
 	if not CONFIG.UseTeamColors then
-		return getHealthGradientColor(healthPercent)
+		return CONFIG.HealthBarColor
 	end
 	
 	if CONFIG.UseActualTeamColors then
@@ -353,18 +354,10 @@ local function getBarColor(targetPlayer, healthPercent, isSelf)
 		if teamColor then
 			return teamColor
 		else
-			if isSelf then
-				return getHealthGradientColor(healthPercent)
-			end
 			return CONFIG.NoTeamColor
 		end
 	else
-		if isSelf then
-			return CONFIG.AlliedHealthBarColor
-		end
-		
-		local isEnemyPlayer = isEnemy(targetPlayer)
-		if isEnemyPlayer then
+		if isEnemy(targetPlayer) then
 			return CONFIG.EnemyHealthBarColor
 		else
 			return CONFIG.AlliedHealthBarColor
@@ -372,64 +365,57 @@ local function getBarColor(targetPlayer, healthPercent, isSelf)
 	end
 end
 
---=============================================================================
--- HEALTH BAR CREATION & MANAGEMENT
---=============================================================================
-
 local function createHealthBar(targetPlayer)
 	if healthBars[targetPlayer] then return end
 	
-	local OutlineBar = Instance.new("Frame")
-	OutlineBar.Name = "HealthBar_" .. targetPlayer.Name
-	OutlineBar.Size = UDim2.new(0, CONFIG.HealthBarWidth, 0, 100)
-	OutlineBar.Position = UDim2.new(0, 0, 0, 0)
-	OutlineBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	OutlineBar.BackgroundTransparency = 0.3
-	OutlineBar.BorderSizePixel = 0
-	OutlineBar.AnchorPoint = Vector2.new(0, 0)
-	OutlineBar.Visible = false
-	OutlineBar.Parent = mainScreenGui
+	local character
+	if targetPlayer:IsA("Player") then
+		character = targetPlayer.Character
+	else
+		character = targetPlayer
+	end
 	
-	local OutlineStroke = Instance.new("UIStroke")
-	OutlineStroke.Thickness = 1
-	OutlineStroke.Color = Color3.fromRGB(0, 0, 0)
-	OutlineStroke.LineJoinMode = Enum.LineJoinMode.Miter
-	OutlineStroke.Parent = OutlineBar
+	if not character then return end
 	
-	local DamageTrail = Instance.new("Frame")
-	DamageTrail.Name = "DamageTrail"
-	DamageTrail.Size = UDim2.new(1, 0, 1, 0)
-	DamageTrail.Position = UDim2.new(0, 0, 0, 0)
-	DamageTrail.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-	DamageTrail.BackgroundTransparency = 0.3
-	DamageTrail.BorderSizePixel = 0
-	DamageTrail.ZIndex = 1
-	DamageTrail.Parent = OutlineBar
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
 	
-	local HealthBar = Instance.new("Frame")
-	HealthBar.Name = "HealthBar"
-	HealthBar.Size = UDim2.new(1, 0, 1, 0)
-	HealthBar.Position = UDim2.new(0, 0, 0, 0)
-	HealthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-	HealthBar.BorderSizePixel = 0
-	HealthBar.ZIndex = 2
-	HealthBar.Parent = OutlineBar
+	local outlineBar = Instance.new("Frame")
+	outlineBar.Name = "HealthBarOutline"
+	outlineBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	outlineBar.BorderSizePixel = 0
+	outlineBar.Parent = mainScreenGui
 	
-	local FlashOverlay = Instance.new("Frame")
-	FlashOverlay.Name = "FlashOverlay"
-	FlashOverlay.Size = UDim2.new(1, 0, 1, 0)
-	FlashOverlay.Position = UDim2.new(0, 0, 0, 0)
-	FlashOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	FlashOverlay.BackgroundTransparency = 1
-	FlashOverlay.BorderSizePixel = 0
-	FlashOverlay.ZIndex = 3
-	FlashOverlay.Parent = OutlineBar
+	local healthBar = Instance.new("Frame")
+	healthBar.Name = "HealthBar"
+	healthBar.BackgroundColor3 = CONFIG.HealthBarColor
+	healthBar.BorderSizePixel = 0
+	healthBar.Size = UDim2.new(1, 0, 1, 0)
+	healthBar.Position = UDim2.new(0, 0, 0, 0)
+	healthBar.Parent = outlineBar
+	
+	local damageTrail = Instance.new("Frame")
+	damageTrail.Name = "DamageTrail"
+	damageTrail.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+	damageTrail.BackgroundTransparency = 0.3
+	damageTrail.BorderSizePixel = 0
+	damageTrail.Size = UDim2.new(1, 0, 1, 0)
+	damageTrail.Position = UDim2.new(0, 0, 0, 0)
+	damageTrail.Parent = outlineBar
+	
+	local flashOverlay = Instance.new("Frame")
+	flashOverlay.Name = "FlashOverlay"
+	flashOverlay.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+	flashOverlay.BackgroundTransparency = 1
+	flashOverlay.BorderSizePixel = 0
+	flashOverlay.Size = UDim2.new(1, 0, 1, 0)
+	flashOverlay.Parent = outlineBar
 	
 	healthBars[targetPlayer] = {
-		OutlineBar = OutlineBar,
-		HealthBar = HealthBar,
-		DamageTrail = DamageTrail,
-		FlashOverlay = FlashOverlay,
+		OutlineBar = outlineBar,
+		HealthBar = healthBar,
+		DamageTrail = damageTrail,
+		FlashOverlay = flashOverlay,
 		IsSelf = false,
 		LastHealth = 1,
 		CurrentTween = nil
@@ -437,60 +423,52 @@ local function createHealthBar(targetPlayer)
 end
 
 local function createSelfHealthBar()
-	if not player.Character then return end
 	if healthBars[player] then return end
 	
-	local OutlineBar = Instance.new("Frame")
-	OutlineBar.Name = "SelfHealthBar"
-	OutlineBar.Size = UDim2.new(0, CONFIG.HealthBarWidth, 0, 100)
-	OutlineBar.Position = UDim2.new(0, 0, 0, 0)
-	OutlineBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	OutlineBar.BackgroundTransparency = 0.3
-	OutlineBar.BorderSizePixel = 0
-	OutlineBar.AnchorPoint = Vector2.new(0, 0)
-	OutlineBar.Visible = false
-	OutlineBar.Parent = mainScreenGui
+	local character = player.Character
+	if not character then return end
 	
-	local OutlineStroke = Instance.new("UIStroke")
-	OutlineStroke.Thickness = 1
-	OutlineStroke.Color = Color3.fromRGB(0, 0, 0)
-	OutlineStroke.LineJoinMode = Enum.LineJoinMode.Miter
-	OutlineStroke.Parent = OutlineBar
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
 	
-	local DamageTrail = Instance.new("Frame")
-	DamageTrail.Name = "DamageTrail"
-	DamageTrail.Size = UDim2.new(1, 0, 1, 0)
-	DamageTrail.Position = UDim2.new(0, 0, 0, 0)
-	DamageTrail.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-	DamageTrail.BackgroundTransparency = 0.3
-	DamageTrail.BorderSizePixel = 0
-	DamageTrail.ZIndex = 1
-	DamageTrail.Parent = OutlineBar
+	local outlineBar = Instance.new("Frame")
+	outlineBar.Name = "SelfHealthBarOutline"
+	outlineBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	outlineBar.BorderSizePixel = 0
+	outlineBar.Size = UDim2.new(0, CONFIG.HealthBarWidth, 0, 100)
+	outlineBar.Position = UDim2.new(1, -CONFIG.HealthBarWidth - 10, 0.5, -50)
+	outlineBar.Parent = mainScreenGui
 	
-	local HealthBar = Instance.new("Frame")
-	HealthBar.Name = "HealthBar"
-	HealthBar.Size = UDim2.new(1, 0, 1, 0)
-	HealthBar.Position = UDim2.new(0, 0, 0, 0)
-	HealthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-	HealthBar.BorderSizePixel = 0
-	HealthBar.ZIndex = 2
-	HealthBar.Parent = OutlineBar
+	local healthBar = Instance.new("Frame")
+	healthBar.Name = "HealthBar"
+	healthBar.BackgroundColor3 = CONFIG.HealthBarColor
+	healthBar.BorderSizePixel = 0
+	healthBar.Size = UDim2.new(1, 0, 1, 0)
+	healthBar.Position = UDim2.new(0, 0, 0, 0)
+	healthBar.Parent = outlineBar
 	
-	local FlashOverlay = Instance.new("Frame")
-	FlashOverlay.Name = "FlashOverlay"
-	FlashOverlay.Size = UDim2.new(1, 0, 1, 0)
-	FlashOverlay.Position = UDim2.new(0, 0, 0, 0)
-	FlashOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	FlashOverlay.BackgroundTransparency = 1
-	FlashOverlay.BorderSizePixel = 0
-	FlashOverlay.ZIndex = 3
-	FlashOverlay.Parent = OutlineBar
+	local damageTrail = Instance.new("Frame")
+	damageTrail.Name = "DamageTrail"
+	damageTrail.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+	damageTrail.BackgroundTransparency = 0.3
+	damageTrail.BorderSizePixel = 0
+	damageTrail.Size = UDim2.new(1, 0, 1, 0)
+	damageTrail.Position = UDim2.new(0, 0, 0, 0)
+	damageTrail.Parent = outlineBar
+	
+	local flashOverlay = Instance.new("Frame")
+	flashOverlay.Name = "FlashOverlay"
+	flashOverlay.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+	flashOverlay.BackgroundTransparency = 1
+	flashOverlay.BorderSizePixel = 0
+	flashOverlay.Size = UDim2.new(1, 0, 1, 0)
+	flashOverlay.Parent = outlineBar
 	
 	healthBars[player] = {
-		OutlineBar = OutlineBar,
-		HealthBar = HealthBar,
-		DamageTrail = DamageTrail,
-		FlashOverlay = FlashOverlay,
+		OutlineBar = outlineBar,
+		HealthBar = healthBar,
+		DamageTrail = damageTrail,
+		FlashOverlay = flashOverlay,
 		IsSelf = true,
 		LastHealth = 1,
 		CurrentTween = nil
@@ -541,11 +519,25 @@ local function updateHealthBar(targetPlayer, barData)
 		return
 	end
 	
+	-- Check distance
 	if barData.IsSelf then
-		-- For self health bar
+		-- For self health bar, no team check needed
 	elseif targetPlayer:IsA("Player") then
 		-- For player targets
 		if not shouldShowPlayer(targetPlayer) then
+			barData.OutlineBar.Visible = false
+			return
+		end
+		-- Check distance for players
+		local distance = getDistance(character.HumanoidRootPart.Position)
+		if distance > CONFIG.MaxDistance then
+			barData.OutlineBar.Visible = false
+			return
+		end
+	else
+		-- For NPC targets
+		local distance = getDistance(character.HumanoidRootPart.Position)
+		if distance > CONFIG.NPCMaxDistance then
 			barData.OutlineBar.Visible = false
 			return
 		end
@@ -621,23 +613,27 @@ local function updateAllHealthBars()
 end
 
 --=============================================================================
--- NPC MODE
+-- NPC MODE (GIỐNG CHAMS)
 --=============================================================================
 
 local function scanForNPCs()
-	local foundNPCs = findNPCsRecursive(workspace)
+	if not CONFIG.NPCEnabled then return end
+	
+	local foundNPCs = NPCSystem.findNPCsRecursive(workspace)
 	
 	local foundSet = {}
 	for _, npc in pairs(foundNPCs) do
 		foundSet[npc] = true
 	end
 	
+	-- Remove NPCs that no longer exist
 	for npc in pairs(trackedNPCs) do
 		if not foundSet[npc] or not npc.Parent then
 			removeHealthBar(npc)
 		end
 	end
 	
+	-- Add new NPCs
 	for _, npc in pairs(foundNPCs) do
 		if not trackedNPCs[npc] then
 			trackedNPCs[npc] = true
@@ -682,7 +678,7 @@ local function switchMode(newMode)
 		scanForNPCs()
 		if not scanConnection then
 			scanConnection = RunService.Heartbeat:Connect(function()
-				if CONFIG.Mode == "NPC" then
+				if CONFIG.NPCEnabled then
 					scanForNPCs()
 				end
 			end)
@@ -769,6 +765,25 @@ function HealthBarESPAPI:Toggle(state)
 	CONFIG.Enabled = state
 end
 
+function HealthBarESPAPI:ToggleNPC(state)
+	CONFIG.NPCEnabled = state
+	if not state then
+		-- Clean up NPCs
+		local npcsToRemove = {}
+		for target in pairs(healthBars) do
+			if not target:IsA("Player") then
+				table.insert(npcsToRemove, target)
+			end
+		end
+		for _, npc in pairs(npcsToRemove) do
+			removeHealthBar(npc)
+		end
+		trackedNPCs = {}
+	else
+		scanForNPCs()
+	end
+end
+
 function HealthBarESPAPI:SetMode(mode)
 	if mode == "Player" or mode == "NPC" then
 		switchMode(mode)
@@ -779,6 +794,26 @@ end
 
 function HealthBarESPAPI:GetMode()
 	return CONFIG.Mode
+end
+
+function HealthBarESPAPI:GetTrackedNPCs()
+	local npcList = {}
+	for npc in pairs(trackedNPCs) do
+		if npc.Parent then
+			table.insert(npcList, npc)
+		end
+	end
+	return npcList
+end
+
+function HealthBarESPAPI:GetTrackedPlayers()
+	local playerList = {}
+	for target in pairs(healthBars) do
+		if target:IsA("Player") then
+			table.insert(playerList, target)
+		end
+	end
+	return playerList
 end
 
 function HealthBarESPAPI:Destroy()
