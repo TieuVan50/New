@@ -659,20 +659,26 @@ end
 
 local function switchMode(newMode)
 	if newMode == GLOBAL_CONFIG.Mode then return end
-	
+
+	-- Clear all ESP boxes
 	for target in pairs(EspStorage.Boxes) do
 		BoxManager.remove(target)
 	end
-	
+
+	-- Cleanup trước cho chắc
+	PlayerMode.cleanup()
+	NPCMode.cleanup()
+
 	GLOBAL_CONFIG.Mode = newMode
-	
+
 	if newMode == "Player" then
-		PlayerMode.cleanup()
-		NPCMode.cleanup()
 		PlayerMode.initialize()
-	else
-		PlayerMode.cleanup()
-		NPCMode.cleanup()
+
+	elseif newMode == "NPC" then
+		NPCMode.initialize()
+
+	elseif newMode == "Both" then
+		PlayerMode.initialize()
 		NPCMode.initialize()
 	end
 end
