@@ -212,3 +212,4 @@ ChamsSection:Label("Màu Boss NPC"):Colorpicker({
 		ChamsAPI:UpdateConfig({BossNPCColor = Value})
 	end
 })
+end
