@@ -5,17 +5,19 @@ return function(EspPage, HealthBarESPAPI)
 		Icon = "77774174241071",
 		Side = 2
 	})
+còn đây
 
-	HealthBarSection:Dropdown({
-		Name = "Mode",
-		Flag = "HealthBarMode",
-		Default = "Player",
-		Items = {"Player", "NPC"},
-		Multi = false,
-		Callback = function(Value)
-			HealthBarESPAPI:SetMode(Value)
-		end
-	})
+HealthBarSection:Dropdown({
+	Name = "Mode",
+	Flag = "HealthBarMode",
+	Default = "Player",
+	Items = {"Player", "NPC", "Both"},
+	Multi = false,
+	Callback = function(Value)
+		local selectedMode = type(Value) == "table" and Value[1] or Value
+		HealthBarESPAPI:SetMode(selectedMode)
+	end
+})
 
 	HealthBarSection:Toggle({
 		Name = "Enable Health Bar",
