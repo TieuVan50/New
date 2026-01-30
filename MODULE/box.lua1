@@ -64,7 +64,18 @@ local NPCTags = {
 	"Fighter", "fighter", "Target", "target", "Dummy", "dummy", "PoliceN",
 	"Cashier", "Civilian", "Barber", "BlackMarketNPC", "BlackMarketNPC2",
 	"ClothingShopNPC", "ConstructionWorker", "DealerNPC", "GunNPC", "CheeseAdd1",
-	"NewMouse",
+	"NewMouse", "BlueWildebeest", "BlueWildebeestAlbino", "CanadaGoose", "CanadaGooseLeucistic",
+	"CanadaGoosePiebald", "Coyote", "CoyoteAlbino", "CoyoteHalloween1", "CoyoteMelanistic",
+	"CoyotePiebald", "GrizzlyBear", "GrizzlyBearAlbino", "GrizzlyBearHalloween1", "GrizzlyBearMelanistic",
+	"GrizzlyBearSilver", "FemaleLion", "FemaleLionAlbino", "MaleLion", "MaleLionAlbino", "FemaleMoose",
+	"FemaleMooseAlbino", "FemaleMooseMelanistic", "FemaleMoosePiebald", "MaleMooseAlbino",
+	"MaleMooseMelanistic", "MaleMoosePiebald", "PlainsZebra", "PlainsZebraAlbino", "PlainsZebraBrown",
+	"PlainsZebraMelanistic", "RedFox", "RedFoxAlbino", "RedFoxMelanistic", "RedFoxPiebald",
+	"RuffedGrouse", "RuffedGrouseLeucistic", "SpottedHyena", "SpottedHyenaAlbino", "SpottedHyenaAlbino",
+	"AlbinoWhiteTailedDeerFemale", "AlbinoWhiteTailedDeerMale", "MelanisticWhiteTailedDeerFemale",
+	"MelanisticWhiteTailedDeerMale", "MelanisticWhiteTailedDeerMale", "PiebaldWhiteTailedDeerFemale",
+	"PiebaldWhiteTailedDeerFemale", "PiebaldWhiteTailedDeerMale", "WhiteTailedDeerFemale", "WhiteTailedDeerMale",
+	"WhiteTailedDeerMaleHalloween1", "WhiteTailedDeerMaleHalloween2", "WhiteTailedDeerMaleHalloween3",
 }
 
 local function initializeScreenGui()
@@ -293,7 +304,7 @@ function NPCSystem.isNPC(character)
 	end
 	
 	local npcFolders = {"NPCs", "Enemies", "Bots", "Mobs", "Targets", "Enemy", "Hostile",
-		"Monsters", "Zombies", "Creatures", "Characters", "Spawns", "EnemySpawns", "NPCSpawns", "Bosses"}
+		"Monsters", "Zombies", "Creatures", "Characters", "Spawns", "EnemySpawns", "NPCSpawns", "Bosses", "FindCheese", "Animals"}
 	
 	for _, folderName in pairs(npcFolders) do
 		local folder = workspace:FindFirstChild(folderName)
