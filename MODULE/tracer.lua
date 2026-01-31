@@ -420,9 +420,31 @@ end
 local function updateAllTracers()
 	if not isInitialized then return end
 	
+	-- LOGIC MỚI: Cleanup dựa vào Mode giống Box
 	for target, tracerData in pairs(tracers) do
 		if target and target.Parent then
-			updateTracer(target, tracerData)
+			if target == player then
+				continue
+			end
+			
+			-- Kiểm tra xem có nên hiển thị tracer này không
+			if tracerData.IsNPC then
+				-- Nếu là NPC nhưng Mode không cho phép NPC
+				if CONFIG.Enabled and (CONFIG.Mode == "NPC" or CONFIG.Mode == "Both") then
+					updateTracer(target, tracerData)
+				else
+					-- Ẩn tracer NPC nếu mode không phải NPC/Both
+					pcall(function() tracerData.drawing.Visible = false end)
+				end
+			else
+				-- Nếu là Player nhưng Mode không cho phép Player
+				if CONFIG.Enabled and (CONFIG.Mode == "Player" or CONFIG.Mode == "Both") and shouldShowPlayer(target) then
+					updateTracer(target, tracerData)
+				else
+					-- Ẩn tracer Player nếu mode không phải Player/Both
+					pcall(function() tracerData.drawing.Visible = false end)
+				end
+			end
 		else
 			task.defer(function()
 				removeTracer(target)
@@ -468,36 +490,51 @@ local function initializeNPCScanning()
 	end
 end
 
-function NPCMode.cleanup()
+-- HÀM CLEANUP NPCs GIỐNG BOX
+local function cleanupNPCs()
 	local npcsToRemove = {}
-	for target in pairs(EspStorage.Boxes) do
+	for target in pairs(tracers) do
 		if target:IsA("Model") and NPCSystem.isNPC(target) then
 			table.insert(npcsToRemove, target)
 		end
 	end
 	
 	for _, npc in pairs(npcsToRemove) do
-		BoxManager.remove(npc)
+		removeTracer(npc)
 	end
 	
-	EspStorage.TrackedNPCs = {}
+	trackedNPCs = {}
 end
 
-local EventHandler = {}
-
-function EventHandler.onPlayerAdded(newPlayer)
-	if newPlayer ~= Cache.LocalPlayer then
-		if Utils.shouldShowPlayer(newPlayer) then
-			task.wait(0.5)
-			if CONFIG.Mode == "Player" or CONFIG.Mode == "Both" then
-				BoxManager.create(newPlayer)
-			end
+-- HÀM CLEANUP PLAYERS
+local function cleanupPlayers()
+	local playersToRemove = {}
+	for target in pairs(tracers) do
+		-- Nếu target là Player instance (không phải Model/NPC)
+		if target:IsA("Player") then
+			table.insert(playersToRemove, target)
 		end
+	end
+	
+	for _, playerTarget in pairs(playersToRemove) do
+		removeTracer(playerTarget)
 	end
 end
 
-function EventHandler.onPlayerRemoving(leavingPlayer)
-	BoxManager.remove(leavingPlayer)
+local function onPlayerAdded(newPlayer)
+	if newPlayer ~= player then
+		task.delay(0.5, function()
+			if newPlayer and newPlayer.Parent then
+				createTracer(newPlayer, false)
+			end
+		end)
+	end
+end
+
+local function onPlayerRemoving(leavingPlayer)
+	task.defer(function()
+		removeTracer(leavingPlayer)
+	end)
 end
 
 local function initialize()
@@ -575,9 +612,23 @@ function TracerESPAPI:Toggle(state)
 	CONFIG.Enabled = state
 end
 
+-- HÀM SETMODE MỚI VỚI CLEANUP
 function TracerESPAPI:SetMode(mode)
 	if mode == "Player" or mode == "NPC" or mode == "Both" then
+		local oldMode = CONFIG.Mode
 		CONFIG.Mode = mode
+		
+		-- Cleanup khi chuyển mode (giống Box)
+		if oldMode ~= mode then
+			if mode == "Player" then
+				-- Chuyển sang Player only -> Xóa tất cả NPC tracers
+				cleanupNPCs()
+			elseif mode == "NPC" then
+				-- Chuyển sang NPC only -> Xóa tất cả Player tracers
+				cleanupPlayers()
+			end
+			-- Mode "Both" không cần cleanup gì
+		end
 	end
 end
 
