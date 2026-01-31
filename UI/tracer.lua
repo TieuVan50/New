@@ -2,7 +2,7 @@ return function(EspPage, TracerModule)
 	local TracerSection = EspPage:Section({
 		Name = "Tracer ESP",
 		Description = "Draw lines to targets from screen origin",
-		Icon = "10709782230",
+		Icon = "10734962600",
 		Side = 2
 	})
 
