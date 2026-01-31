@@ -90,14 +90,14 @@ return function(EspPage, HealthBarModule)
 		end
 	})
 
-	HealthBarSection:Toggle({
+	--[[HealthBarSection:Toggle({
 		Name = "Show Self HealthBar",
 		Flag = "HealthBarShowSelf",
 		Default = false,
 		Callback = function(Value)
 			HealthBarModule:UpdateConfig({ShowSelfHealthBar = Value})
 		end
-	})
+	})]]
 
 	HealthBarSection:Label("─ Player Settings ─")
 
