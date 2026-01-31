@@ -2,8 +2,8 @@ return function(EspPage, BoxModule)
 	local BoxSection = EspPage:Section({
 		Name = "Box ESP",
 		Description = "Highlight targets with boxes",
-		Icon = "10709782230",
-		Side = 2
+		Icon = "10734965702",
+		Side = 1
 	})
 
 	BoxSection:Toggle({
