@@ -3,7 +3,7 @@ return function(EspPage, ChamsModule)
 		Name = "Chams ESP",
 		Description = "Highlight targets through walls",
 		Icon = "10734942351",
-		Side = 2
+		Side = 1
 	})
 
 	ChamsSection:Toggle({
