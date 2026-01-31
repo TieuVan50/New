@@ -9,11 +9,11 @@ local camera = Workspace.CurrentCamera
 
 local CONFIG = {
 	HealthBarColor = Color3.fromRGB(180, 0, 255),
-	HealthBarWidth = 3,
+	HealthBarWidth = 2.5,
 	HealthBarGap = 2,
 	Side = "Left",
 	OffsetX = 0,
-	OffsetY = 0,
+	OffsetY = 58,
 	ShowSelfHealthBar = false,
 	
 	Enabled = false,
