@@ -30,7 +30,6 @@ local CONFIG = {
 	AlliedTracerColor = Color3.fromRGB(0, 255, 0),
 	NoTeamColor = Color3.fromRGB(255, 255, 255),
 	
-	-- NPC CONFIG
 	Mode = "Player",
 	EnableNPCTracer = true,
 	UseNPCColors = false,
@@ -48,7 +47,6 @@ local MAX_POOL_SIZE = 100
 local isInitialized = false
 local scanConnection = nil
 
--- NPC Tags
 local NPCTags = {
 	"NPC", "Npc", "npc", "Enemy", "enemy", "Enemies", "enemies",
 	"Hostile", "hostile", "Bad", "bad", "BadGuy", "badguy",
@@ -60,10 +58,6 @@ local NPCTags = {
 	"Guardian", "guardian", "Soldier", "soldier", "Warrior", "warrior",
 	"Fighter", "fighter", "Target", "target", "Dummy", "dummy",
 }
-
---=============================================================================
--- NPC DETECTION SYSTEM
---=============================================================================
 
 local NPCSystem = {}
 
@@ -138,10 +132,6 @@ function NPCSystem.findNPCsRecursive(parent)
 	end
 	return foundNPCs
 end
-
---=============================================================================
--- UTILITY FUNCTIONS
---=============================================================================
 
 local function gameHasTeams()
 	local success, teams = pcall(function()
@@ -268,10 +258,6 @@ local function getTargetScreenPos(character)
 	return success and result or nil
 end
 
---=============================================================================
--- DRAWING POOL MANAGEMENT
---=============================================================================
-
 local function getDrawing()
 	if poolSize > 0 and drawingPool[poolSize] then
 		local line = drawingPool[poolSize]
@@ -312,13 +298,8 @@ local function returnDrawing(line)
 	end
 end
 
---=============================================================================
--- TRACER MANAGEMENT
---=============================================================================
-
 local function createTracer(target, isNPC)
 	if tracers[target] then return end
-	if not isNPC and target == player then return end
 	
 	local drawing = getDrawing()
 	if not drawing then return end
@@ -357,12 +338,11 @@ local function updateTracer(target, tracerData)
 		return
 	end
 	
-	-- Xác định character từ target
 	local character
 	if isNPC then
-		character = target  -- Nếu là NPC, target đã là character
+		character = target
 	else
-		character = target and target.Character or target  -- Nếu là Player
+		character = target and target.Character or target
 	end
 	
 	if not character or character.Parent == nil then
@@ -451,42 +431,6 @@ local function updateAllTracers()
 	end
 end
 
---=============================================================================
--- MODE MANAGEMENT
---=============================================================================
-
-local function cleanupPlayerTracers()
-	local playersToRemove = {}
-	for target in pairs(tracers) do
-		if not target:IsA("Model") or not NPCSystem.isNPC(target) then
-			table.insert(playersToRemove, target)
-		end
-	end
-	
-	for _, player in pairs(playersToRemove) do
-		removeTracer(player)
-	end
-end
-
-local function cleanupNPCTracers()
-	local npcsToRemove = {}
-	for target in pairs(tracers) do
-		if target:IsA("Model") and NPCSystem.isNPC(target) then
-			table.insert(npcsToRemove, target)
-		end
-	end
-	
-	for _, npc in pairs(npcsToRemove) do
-		removeTracer(npc)
-	end
-	
-	trackedNPCs = {}
-end
-
---=============================================================================
--- NPC SCANNING
---=============================================================================
-
 local function scanForNPCs()
 	local foundNPCs = NPCSystem.findNPCsRecursive(Workspace)
 	
@@ -524,31 +468,36 @@ local function initializeNPCScanning()
 	end
 end
 
-local function stopNPCScanning()
-	if scanConnection then
-		scanConnection:Disconnect()
-		scanConnection = nil
+function NPCMode.cleanup()
+	local npcsToRemove = {}
+	for target in pairs(EspStorage.Boxes) do
+		if target:IsA("Model") and NPCSystem.isNPC(target) then
+			table.insert(npcsToRemove, target)
+		end
 	end
+	
+	for _, npc in pairs(npcsToRemove) do
+		BoxManager.remove(npc)
+	end
+	
+	EspStorage.TrackedNPCs = {}
 end
 
---=============================================================================
--- EVENT HANDLERS
---=============================================================================
+local EventHandler = {}
 
-local function onPlayerAdded(newPlayer)
-	if newPlayer ~= player then
-		task.delay(0.5, function()
-			if newPlayer and newPlayer.Parent then
-				createTracer(newPlayer, false)
+function EventHandler.onPlayerAdded(newPlayer)
+	if newPlayer ~= Cache.LocalPlayer then
+		if Utils.shouldShowPlayer(newPlayer) then
+			task.wait(0.5)
+			if CONFIG.Mode == "Player" or CONFIG.Mode == "Both" then
+				BoxManager.create(newPlayer)
 			end
-		end)
+		end
 	end
 end
 
-local function onPlayerRemoving(leavingPlayer)
-	task.defer(function()
-		removeTracer(leavingPlayer)
-	end)
+function EventHandler.onPlayerRemoving(leavingPlayer)
+	BoxManager.remove(leavingPlayer)
 end
 
 local function initialize()
@@ -563,7 +512,10 @@ local function initialize()
 end
 
 local function cleanup()
-	stopNPCScanning()
+	if scanConnection then
+		scanConnection:Disconnect()
+		scanConnection = nil
+	end
 	
 	for target, _ in pairs(tracers) do
 		removeTracer(target)
@@ -580,10 +532,6 @@ local function cleanup()
 	poolSize = 0
 	trackedNPCs = {}
 end
-
---=============================================================================
--- INITIALIZATION
---=============================================================================
 
 Players.PlayerAdded:Connect(onPlayerAdded)
 Players.PlayerRemoving:Connect(onPlayerRemoving)
@@ -609,10 +557,6 @@ end)
 
 task.delay(0.1, initialize)
 
---=============================================================================
--- PUBLIC API
---=============================================================================
-
 local TracerESPAPI = {}
 
 function TracerESPAPI:UpdateConfig(newConfig)
@@ -632,15 +576,6 @@ function TracerESPAPI:Toggle(state)
 end
 
 function TracerESPAPI:SetMode(mode)
-	-- Xóa tracer cũ khi chuyển chế độ
-	if mode == "Player" then
-		cleanupNPCTracers()
-	elseif mode == "NPC" then
-		cleanupPlayerTracers()
-	elseif mode == "Both" then
-		-- Giữ cả hai, không xóa
-	end
-	
 	if mode == "Player" or mode == "NPC" or mode == "Both" then
 		CONFIG.Mode = mode
 	end
