@@ -621,11 +621,21 @@ function TracerESPAPI:SetMode(mode)
 		-- Cleanup và tạo lại khi chuyển mode
 		if oldMode ~= mode then
 			if mode == "Player" then
-				-- Chuyển sang Player only -> Xóa tất cả NPC tracers
+				-- Chuyển sang Player only -> Xóa tất cả NPC tracers và tạo lại Player tracers
 				cleanupNPCs()
+				
+				-- Tạo lại Player tracers nếu chưa có
+				for _, otherPlayer in ipairs(Players:GetPlayers()) do
+					if otherPlayer ~= player and not tracers[otherPlayer] then
+						createTracer(otherPlayer, false)
+					end
+				end
 			elseif mode == "NPC" then
-				-- Chuyển sang NPC only -> Xóa tất cả Player tracers
+				-- Chuyển sang NPC only -> Xóa tất cả Player tracers và tạo lại NPC tracers
 				cleanupPlayers()
+				
+				-- Tạo lại NPC tracers
+				scanForNPCs()
 			elseif mode == "Both" then
 				-- Chuyển sang Both -> Tạo lại cả Player và NPC tracers
 				-- Tạo lại Player tracers nếu chưa có
