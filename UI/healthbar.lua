@@ -35,7 +35,7 @@ return function(EspPage, HealthBarModule)
 		Flag = "HealthBarWidth",
 		Min = 1,
 		Max = 10,
-		Default = 3,
+		Default = 2.5,
 		Decimals = 0.1,
 		Callback = function(Value)
 			HealthBarModule:UpdateConfig({HealthBarWidth = Value})
@@ -83,7 +83,7 @@ return function(EspPage, HealthBarModule)
 		Flag = "HealthBarOffsetY",
 		Min = -100,
 		Max = 100,
-		Default = 0,
+		Default = 58,
 		Decimals = 1,
 		Callback = function(Value)
 			HealthBarModule:UpdateConfig({OffsetY = Value})
