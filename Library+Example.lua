@@ -2319,7 +2319,7 @@ end)
                     FontFace = Library.Font,
                     TextColor3 = FromRGB(255, 255, 255),
                     TextTransparency = 0.5,
-                    Text = "Sub expires in "..Window.ExpiresIn,
+                    Text = "Bản Miễn phí"..Window.ExpiresIn,
                     Size = UDim2New(0, 0, 0, 15),
                     BorderSizePixel = 0,
                     BackgroundTransparency = 1,
